@@ -192,6 +192,27 @@ void main() {
     expect(tags['Image DateTime'].toString(), '2024:01:02 03:04:05');
   });
 
+  test('a gain map after the picture loses its place', () async {
+    const place = 'GPSLatitude>48.1600N';
+    final gain = _jpeg(little: true);
+    final picture = Uint8List.fromList([
+      ..._jpeg(little: false, gps: false),
+      ...gain,
+      ...place.codeUnits,
+    ]);
+    expect(_contains(picture, _latitude), isTrue);
+    expect(_contains(picture, place.codeUnits), isTrue);
+
+    final stripped = await photoWithoutLocation(picture);
+    expect(stripped, isNotNull);
+    expect(_contains(stripped!, _latitude), isFalse);
+    expect(_contains(stripped, place.codeUnits), isFalse);
+    expect(_contains(stripped, '2024:01:02 03:04:05'.codeUnits), isTrue);
+    final tags = await readExifFromBytes(stripped);
+    expect(tags['GPS GPSLatitude'], isNull);
+    expect(tags['Image DateTime'].toString(), '2024:01:02 03:04:05');
+  });
+
   test('xmp and a nested thumbnail lose their place', () async {
     const place = 'GPSLatitude>48,9.6000N';
     final xmp = _withSegment(

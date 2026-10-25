@@ -89,13 +89,8 @@ bool _scrubJpeg(
     return false;
   }
   var i = start + 2;
-  var sawEoi = false;
   while (i < end) {
-    if (bytes[i] != 0xFF) {
-      if (!sawEoi) return false;
-      _blank(bytes, i, end, scrub);
-      return true;
-    }
+    if (bytes[i] != 0xFF) return false;
     while (i < end && bytes[i] == 0xFF) {
       i++;
     }
@@ -103,8 +98,10 @@ bool _scrubJpeg(
     final marker = bytes[i];
     i++;
     if (marker == 0xD9) {
-      sawEoi = true;
-      continue;
+      // A gain map or a motion photo follows this marker and can carry the
+      // place. The picture ends here.
+      if (i < end) _blank(bytes, i, end, scrub);
+      return true;
     }
     if (marker == 0x00) return false;
     if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) continue;
@@ -129,7 +126,7 @@ bool _scrubJpeg(
     }
     i = segEnd;
   }
-  return sawEoi;
+  return false;
 }
 
 int _skipEntropy(Uint8List bytes, int i, int end) {
