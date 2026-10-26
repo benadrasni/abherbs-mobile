@@ -260,17 +260,45 @@ Future<GuideHabitatCounts> loadHabitatCounts(String colorId) async {
   );
 }
 
+/// Header counts for the petal step. [guidePetalTotal] reads the empty-petal
+/// list key. The per-code counts stay beside it for the four tiles.
+Map<String, int> guidePetalCountsFromPlants(
+  Iterable<GuideKeyPlant> plants, {
+  required String colorId,
+  String? habitatId,
+}) {
+  final totalKey = guideFilterKey(colorId: colorId, habitatId: habitatId);
+  return {
+    totalKey: guideKeyMatches(
+      plants,
+      colorId: colorId,
+      habitatId: habitatId,
+      petalId: '',
+    ).length,
+    for (final id in guidePetalIds)
+      id: guideKeyCount(
+        plants,
+        colorId: colorId,
+        habitatId: habitatId,
+        petalId: id,
+      ),
+  };
+}
+
 Future<Map<String, int>> loadPetalCounts(
   String colorId,
   String? habitatId,
 ) async {
+  final totalKey = guideFilterKey(colorId: colorId, habitatId: habitatId);
   final keys = [
+    totalKey,
     for (final id in guidePetalIds)
       guideFilterKey(colorId: colorId, habitatId: habitatId, petalId: id),
   ];
   final counts = await _indexCounts(keys, 'guide petal counts');
   if (counts != null) {
     return {
+      totalKey: counts[totalKey] ?? 0,
       for (final id in guidePetalIds)
         id: counts[guideFilterKey(
               colorId: colorId,
@@ -280,16 +308,11 @@ Future<Map<String, int>> loadPetalCounts(
             0,
     };
   }
-  final plants = await loadGuideKeyPlants();
-  return {
-    for (final id in guidePetalIds)
-      id: guideKeyCount(
-        plants,
-        colorId: colorId,
-        habitatId: habitatId,
-        petalId: id,
-      ),
-  };
+  return guidePetalCountsFromPlants(
+    await loadGuideKeyPlants(),
+    colorId: colorId,
+    habitatId: habitatId,
+  );
 }
 
 Future<List<GuideResultPlant>> loadGuideResults({

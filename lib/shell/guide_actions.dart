@@ -261,8 +261,14 @@ void openGuideResults(
   required String petalId,
 }) {
   final language = Localizations.localeOf(context).languageCode;
-  Navigator.push(
-    context,
+  final navigator = Navigator.of(context);
+  // Skip, back, skip would otherwise push a second list. The upper page's
+  // Petals control would then return to the old list. One results route
+  // stays above the petal step.
+  navigator.popUntil(
+    (route) => route.settings.name != guideResultsRouteName,
+  );
+  navigator.push(
     MaterialPageRoute<void>(
       settings: const RouteSettings(name: guideResultsRouteName),
       builder: (context) => GuideResultsPage(

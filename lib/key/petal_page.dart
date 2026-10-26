@@ -37,13 +37,16 @@ String guidePetalFilterLabel(
   return strings.guide_petal_filter(color, habitat);
 }
 
-int? guidePetalTotal(Map<String, int>? counts) {
+/// Plants in this color and place. The list key leaves the petal slot empty
+/// (`1_1__`, or `1___` when the place was skipped), so a flower stored under
+/// two petal codes is counted once. Summing `1`–`4` counts that flower twice.
+int? guidePetalTotal(
+  Map<String, int>? counts, {
+  required String colorId,
+  String? habitatId,
+}) {
   if (counts == null) return null;
-  var total = 0;
-  for (final id in guidePetalIds) {
-    total += counts[id] ?? 0;
-  }
-  return total;
+  return counts[guideFilterKey(colorId: colorId, habitatId: habitatId)];
 }
 
 class GuidePetalPage extends StatefulWidget {
@@ -125,7 +128,11 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
   void _skip() {
     final counts = _counts;
     if (counts == null && !_failed) return;
-    final total = guidePetalTotal(counts);
+    final total = guidePetalTotal(
+      counts,
+      colorId: widget.colorId,
+      habitatId: widget.habitatId,
+    );
     if (total != null && total <= 0) {
       guideNoFlowers(context);
       return;
@@ -264,7 +271,11 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
   }
 
   String _skipLabel(S strings, String filter) {
-    final total = guidePetalTotal(_counts);
+    final total = guidePetalTotal(
+      _counts,
+      colorId: widget.colorId,
+      habitatId: widget.habitatId,
+    );
     if (total == null) return strings.guide_petal_skip(filter);
     return strings.guide_petal_skip_count(total, filter);
   }
