@@ -247,7 +247,7 @@ void openGuidePetals(
           context,
           colorId: colorId,
           habitatId: habitatId,
-          petalId: petalId,
+          petalId: petalId ?? '',
         ),
       ),
     ),

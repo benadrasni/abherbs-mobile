@@ -92,7 +92,7 @@ void main() {
     expect(find.text('11'), findsOneWidget);
     expect(find.text('22'), findsOneWidget);
     expect(
-      find.text('In a garden, or not sure? Show all 100 white flowers'),
+      find.text('In a garden, or not sure? Show all 100 white plants'),
       findsOneWidget,
     );
 
@@ -103,7 +103,7 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -160));
     await tester.pump();
     await tester.tap(
-      find.text('In a garden, or not sure? Show all 100 white flowers'),
+      find.text('In a garden, or not sure? Show all 100 white plants'),
     );
     await tester.pump();
     expect(picked, 'skipped');
@@ -146,7 +146,7 @@ void main() {
     await tester.pump();
     expect(picked, isFalse);
     expect(
-      find.text('In a garden, or not sure? Show all white flowers'),
+      find.text('In a garden, or not sure? Show all white plants'),
       findsOneWidget,
     );
   });

@@ -449,10 +449,12 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
                             ),
                             onPressed: () => popGuideKeyToHabitat(context),
                           ),
-                        GuideFilterPill(
-                          label: guidePetalTrailLabel(strings, widget.petalId),
-                          onPressed: () => Navigator.maybePop(context),
-                        ),
+                        if (widget.petalId.isNotEmpty)
+                          GuideFilterPill(
+                            label:
+                                guidePetalTrailLabel(strings, widget.petalId),
+                            onPressed: () => Navigator.maybePop(context),
+                          ),
                       ],
                     ),
                   ),

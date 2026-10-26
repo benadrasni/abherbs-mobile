@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:abherbs_flutter/generated/l10n.dart';
 import 'package:abherbs_flutter/data/guide_data.dart';
 import 'package:abherbs_flutter/key/petal_glyphs.dart';
@@ -63,6 +65,10 @@ void main() {
     expect(find.text('41'), findsOneWidget);
     expect(find.text('50'), findsOneWidget);
     expect(
+      find.text('Not sure? Show all 239 white, meadow plants'),
+      findsOneWidget,
+    );
+    expect(
       tester.getTopLeft(find.text('41')).dy,
       lessThan(tester.getTopLeft(find.text('4 or less')).dy),
     );
@@ -72,10 +78,12 @@ void main() {
     );
     final glyph = tester.getCenter(find.byType(GuidePetalGlyph).first);
     final tile = tester.getRect(
-      find.ancestor(
-        of: find.byType(GuidePetalGlyph).first,
-        matching: find.byType(InkWell),
-      ).first,
+      find
+          .ancestor(
+            of: find.byType(GuidePetalGlyph).first,
+            matching: find.byType(InkWell),
+          )
+          .first,
     );
     expect(glyph.dx, closeTo(tile.center.dx, 1));
 
@@ -89,6 +97,71 @@ void main() {
     expect(find.text('White'), findsOneWidget);
     expect(find.text('Meadow'), findsNothing);
     expect(find.text('141'), findsOneWidget);
+    expect(
+      find.text('Not sure? Show all 416 white plants'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('not sure lists every plant in this color and place',
+      (tester) async {
+    String? picked = 'unset';
+    await _pump(
+      tester,
+      _page(onContinue: (id) => picked = id),
+    );
+
+    await tester.ensureVisible(
+      find.text('Not sure? Show all 239 white, meadow plants'),
+    );
+    await tester.tap(find.text('Not sure? Show all 239 white, meadow plants'));
+    await tester.pump();
+    expect(picked, isNull);
+  });
+
+  testWidgets('an empty filter stays on the petal step', (tester) async {
+    String? picked = 'unset';
+    await _pump(
+      tester,
+      _page(
+        counts: const {'1': 0, '2': 0, '3': 0, '4': 0},
+        onContinue: (id) => picked = id,
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.text('Not sure? Show all 0 white, meadow plants'),
+    );
+    await tester.tap(find.text('Not sure? Show all 0 white, meadow plants'));
+    await tester.pump();
+    expect(
+      find.text('There are no flowers matching criteria.'),
+      findsOneWidget,
+    );
+    expect(picked, 'unset');
+  });
+
+  testWidgets('waits for the counts before skipping petals', (tester) async {
+    var picked = false;
+    final pending = Completer<Map<String, int>>();
+    addTearDown(() {
+      if (!pending.isCompleted) pending.complete(_withPlace);
+    });
+    await _pump(
+      tester,
+      _page(
+        counts: null,
+        loadCounts: (_, __) => pending.future,
+        onContinue: (_) => picked = true,
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.text('Not sure? Show all white, meadow plants'),
+    );
+    await tester.tap(find.text('Not sure? Show all white, meadow plants'));
+    await tester.pump();
+    expect(picked, isFalse);
   });
 
   testWidgets('an empty petal choice stays here', (tester) async {
@@ -135,13 +208,19 @@ const _skipped = {'1': 125, '2': 80, '3': 141, '4': 70};
 Widget _page({
   String? habitatId = '1',
   Map<String, int>? counts,
-  void Function(String petalId)? onContinue,
+  Future<Map<String, int>> Function(String colorId, String? habitatId)?
+      loadCounts,
+  void Function(String? petalId)? onContinue,
 }) {
   return _app(
     GuidePetalPage(
       colorId: '1',
       habitatId: habitatId,
-      counts: counts ?? (habitatId == null ? _skipped : _withPlace),
+      counts: counts ??
+          (loadCounts == null
+              ? (habitatId == null ? _skipped : _withPlace)
+              : null),
+      loadCounts: loadCounts ?? ((_, __) async => _withPlace),
       onContinue: onContinue,
     ),
   );

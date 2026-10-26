@@ -819,6 +819,16 @@ void main() {
     expect(find.text('to petals'), findsNothing);
     expect(find.text('open'), findsOneWidget);
   });
+
+  testWidgets('a skipped petal count leaves that pill off', (tester) async {
+    await _pump(tester, _app(_results(petalId: '')));
+
+    expect(find.text('Petals'), findsOneWidget);
+    expect(find.text('White'), findsOneWidget);
+    expect(find.text('Meadow'), findsOneWidget);
+    expect(find.text('More than 5 petals'), findsNothing);
+    expect(find.text(' petals'), findsNothing);
+  });
 }
 
 const _sample = [
@@ -916,6 +926,7 @@ Widget _results({
   List<GuideResultPlant>? plants = _sample,
   Set<String> seen = const {},
   Map<String, int> counts = const {'': 4},
+  String petalId = '3',
   bool showAd = false,
   WidgetBuilder? adBuilder,
   Future<List<GuideResultPlant>> Function(String? regionId)? loadResults,
@@ -927,7 +938,7 @@ Widget _results({
   return GuideResultsPage(
     colorId: '1',
     habitatId: '1',
-    petalId: '3',
+    petalId: petalId,
     month: 7,
     showAd: showAd,
     adBuilder: adBuilder,

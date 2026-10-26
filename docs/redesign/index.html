@@ -930,15 +930,19 @@ function habitatScreen(){
   <div class="pad" style="margin-top:14px"><span class="eyebrow">Key it out · 2 of 3</span><div class="stepper"><i class="on"></i><i class="on"></i><i></i></div>
   <h2 class="q" style="margin-top:12px">Where is it growing?</h2>
   <div class="habs">${HABS.map(([k,l,ex,n])=>`<button class="hab" data-habitat="${k}"><span class="g">${HAB_G[k]}</span><span class="l">${esc(cap(l))}</span><span class="e">${esc(ex)}</span><span class="n">${n}</span></button>`).join('')}</div>
-  <button class="skip" data-toast="Would list all ${D.counts.color[1]} white flowers (key 1___)">In a garden, or not sure? Show all ${D.counts.color[1]} white flowers</button></div><div style="height:20px"></div>`;
+  <button class="skip" data-toast="Would list all ${D.counts.color[1]} white plants (key 1___)">In a garden, or not sure? Show all ${D.counts.color[1]} white plants</button></div><div style="height:20px"></div>`;
 }
 function petalScreen(){
+  const n=Object.values(D.counts.petal).reduce((a,b)=>a+b,0);
+  const place=(HABS.find(x=>x[0]==st.habitat)||[])[1];
+  const filter=place?`white, ${place}`:'white';
   return `<div class="back" data-go="habitat">${I.back}Habitat</div>
   ${trail(3)}
   <div class="pad" style="margin-top:14px"><span class="eyebrow">Key it out · 3 of 3</span><div class="stepper"><i class="on"></i><i class="on"></i><i class="on"></i></div>
   <h2 class="q" style="margin-top:12px">How many petals?</h2>
   <p class="hint" style="margin:-6px 0 14px">Two-lipped or one-sided flowers are zygomorphic, whatever the count.</p>
-  <div class="petals">${PETS.map(([k,l])=>`<button class="petal" data-petal="${k}">${petalSvg(k)}<span class="l">${esc(cap(l))}</span><span class="n">${D.counts.petal[k]}</span></button>`).join('')}</div></div><div style="height:20px"></div>`;
+  <div class="petals">${PETS.map(([k,l])=>`<button class="petal" data-petal="${k}">${petalSvg(k)}<span class="l">${esc(cap(l))}</span><span class="n">${D.counts.petal[k]}</span></button>`).join('')}</div>
+  <button class="skip" data-toast="Would list all ${n} ${filter} plants">Not sure? Show all ${n} ${filter} plants</button></div><div style="height:20px"></div>`;
 }
 const inFlower=p=>p.fl[0]&&p.fl[0]<=NOW_MONTH&&p.fl[1]>=NOW_MONTH;
 function seenNames(){return new Set(st.seen.filter(r=>!r.u).map(r=>r.n))}

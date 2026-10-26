@@ -28,13 +28,31 @@ String guidePetalTrailLabel(S strings, String id) {
   return strings.guide_petal_trail(name);
 }
 
+String guidePetalFilterLabel(
+  S strings, {
+  required String color,
+  String habitat = '',
+}) {
+  if (habitat.isEmpty) return color;
+  return strings.guide_petal_filter(color, habitat);
+}
+
+int? guidePetalTotal(Map<String, int>? counts) {
+  if (counts == null) return null;
+  var total = 0;
+  for (final id in guidePetalIds) {
+    total += counts[id] ?? 0;
+  }
+  return total;
+}
+
 class GuidePetalPage extends StatefulWidget {
   final String colorId;
   final String? habitatId;
   final Map<String, int>? counts;
   final Future<Map<String, int>> Function(String colorId, String? habitatId)
       loadCounts;
-  final void Function(String petalId)? onContinue;
+  final void Function(String? petalId)? onContinue;
 
   const GuidePetalPage({
     super.key,
@@ -104,6 +122,17 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
     widget.onContinue?.call(id);
   }
 
+  void _skip() {
+    final counts = _counts;
+    if (counts == null && !_failed) return;
+    final total = guidePetalTotal(counts);
+    if (total != null && total <= 0) {
+      guideNoFlowers(context);
+      return;
+    }
+    widget.onContinue?.call(null);
+  }
+
   void _backToFind() {
     popGuideKeyToFind(context);
   }
@@ -112,12 +141,17 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
   Widget build(BuildContext context) {
     final colors = GuideColors.of(context);
     final strings = S.of(context);
-    final colorName = guideCap(
-      getFilterColorValue(context, widget.colorId),
-    );
+    final colorValue = getFilterColorValue(context, widget.colorId);
+    final colorName = guideCap(colorValue);
     final habitatId = widget.habitatId;
-    final habitatName =
-        habitatId == null ? '' : guideCap(guideHabitatName(strings, habitatId));
+    final habitatValue =
+        habitatId == null ? '' : guideHabitatName(strings, habitatId);
+    final habitatName = habitatValue.isEmpty ? '' : guideCap(habitatValue);
+    final filter = guidePetalFilterLabel(
+      strings,
+      color: colorValue,
+      habitat: habitatValue,
+    );
     return GuideKeyScaffold(
       withTabs: true,
       child: ListView(
@@ -177,6 +211,28 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
                 ),
                 const SizedBox(height: 14),
                 ..._petalTiles(),
+                const SizedBox(height: 14),
+                GuideFoldLeading(
+                  originX: 20,
+                  child: (context) => SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: _skip,
+                      style: TextButton.styleFrom(
+                        foregroundColor: colors.moss,
+                        textStyle: const TextStyle(
+                          fontFamily: GuideType.sans,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      child: Text(
+                        _skipLabel(strings, filter),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -193,9 +249,8 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
     final tiles = <Widget>[];
     for (var i = 0; i < guidePetalIds.length; i += perRow) {
       if (tiles.isNotEmpty) tiles.add(const SizedBox(height: 10));
-      final end = i + perRow > guidePetalIds.length
-          ? guidePetalIds.length
-          : i + perRow;
+      final end =
+          i + perRow > guidePetalIds.length ? guidePetalIds.length : i + perRow;
       tiles.add(
         _PetalRow(
           ids: guidePetalIds.sublist(i, end),
@@ -206,6 +261,12 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
       );
     }
     return tiles;
+  }
+
+  String _skipLabel(S strings, String filter) {
+    final total = guidePetalTotal(_counts);
+    if (total == null) return strings.guide_petal_skip(filter);
+    return strings.guide_petal_skip_count(total, filter);
   }
 }
 

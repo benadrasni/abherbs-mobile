@@ -48,7 +48,8 @@ The question is: **where would a person most likely be standing when they see th
 - A cultivated plant follows the same rules as a wild one. It gets 1–3 habitats from where the sources say it grows on its own: its wild range, or where it escapes, self-sows, or naturalizes (usually 8).
 - A parent species' or wild relative's habitat is never used as a stand-in.
 - When no source names any place the plant grows outside cultivation, first run it through `/update-plant`. Several such plants turn out to be gaps in the text, for example *Moricandia arvensis* and *Styphnolobium japonicum*, which both have wild ranges. If the sources still name no place, the plant gets **no habitat**. That is allowed only with `cultivated: true`. It is still found through the skip link (the empty habitat slot, `1__3_`), Search, and Book.
-- The skip link on the habitat step reads **In a garden, or not sure? Show all …**. Someone standing in a garden keys by color and petals (`1__3_`).
+- The skip link on the habitat step reads **In a garden, or not sure? Show all … plants**. Someone standing in a garden keys by color and petals (`1__3_`).
+- The skip link on the petal step reads **Not sure? Show all … plants**. It lists every plant in the color and place already chosen, with the petal slot empty (`1_1__`, or `1___` when the place was skipped).
 
 ## Data
 
