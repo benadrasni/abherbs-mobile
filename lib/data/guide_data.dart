@@ -260,32 +260,40 @@ Future<GuideHabitatCounts> loadHabitatCounts(String colorId) async {
   );
 }
 
-/// Header counts for the petal step. [guidePetalTotal] reads the empty-petal
-/// list key. The per-code counts stay beside it for the four tiles.
-Map<String, int> guidePetalCountsFromPlants(
+class GuidePetalCounts {
+  final int total;
+  final Map<String, int> byPetal;
+
+  const GuidePetalCounts({required this.total, required this.byPetal});
+}
+
+/// Counts for the petal step. [GuidePetalCounts.total] is every plant in this
+/// color and place, counted once. [GuidePetalCounts.byPetal] is the four tiles.
+GuidePetalCounts guidePetalCountsFromPlants(
   Iterable<GuideKeyPlant> plants, {
   required String colorId,
   String? habitatId,
 }) {
-  final totalKey = guideFilterKey(colorId: colorId, habitatId: habitatId);
-  return {
-    totalKey: guideKeyMatches(
+  return GuidePetalCounts(
+    total: guideKeyCount(
       plants,
       colorId: colorId,
       habitatId: habitatId,
       petalId: '',
-    ).length,
-    for (final id in guidePetalIds)
-      id: guideKeyCount(
-        plants,
-        colorId: colorId,
-        habitatId: habitatId,
-        petalId: id,
-      ),
-  };
+    ),
+    byPetal: {
+      for (final id in guidePetalIds)
+        id: guideKeyCount(
+          plants,
+          colorId: colorId,
+          habitatId: habitatId,
+          petalId: id,
+        ),
+    },
+  );
 }
 
-Future<Map<String, int>> loadPetalCounts(
+Future<GuidePetalCounts> loadPetalCounts(
   String colorId,
   String? habitatId,
 ) async {
@@ -297,16 +305,18 @@ Future<Map<String, int>> loadPetalCounts(
   ];
   final counts = await _indexCounts(keys, 'guide petal counts');
   if (counts != null) {
-    return {
-      totalKey: counts[totalKey] ?? 0,
-      for (final id in guidePetalIds)
-        id: counts[guideFilterKey(
-              colorId: colorId,
-              habitatId: habitatId,
-              petalId: id,
-            )] ??
-            0,
-    };
+    return GuidePetalCounts(
+      total: counts[totalKey] ?? 0,
+      byPetal: {
+        for (final id in guidePetalIds)
+          id: counts[guideFilterKey(
+                colorId: colorId,
+                habitatId: habitatId,
+                petalId: id,
+              )] ??
+              0,
+      },
+    );
   }
   return guidePetalCountsFromPlants(
     await loadGuideKeyPlants(),

@@ -148,7 +148,10 @@ void main() {
     await _pump(
       tester,
       _page(
-        counts: const {'1': 0, '2': 0, '3': 0, '4': 0, '1_1__': 0},
+        counts: const GuidePetalCounts(
+          total: 0,
+          byPetal: {'1': 0, '2': 0, '3': 0, '4': 0},
+        ),
         onContinue: (id) => picked = id,
       ),
     );
@@ -167,7 +170,7 @@ void main() {
 
   testWidgets('waits for the counts before skipping petals', (tester) async {
     var picked = false;
-    final pending = Completer<Map<String, int>>();
+    final pending = Completer<GuidePetalCounts>();
     addTearDown(() {
       if (!pending.isCompleted) pending.complete(_withPlace);
     });
@@ -193,7 +196,10 @@ void main() {
     await _pump(
       tester,
       _page(
-        counts: const {'1': 0, '2': 9, '3': 4, '4': 1},
+        counts: const GuidePetalCounts(
+          total: 14,
+          byPetal: {'1': 0, '2': 9, '3': 4, '4': 1},
+        ),
         onContinue: (id) => picked = id,
       ),
     );
@@ -217,38 +223,31 @@ void main() {
     ];
 
     expect(
-      guideKeyMatches(
-        plants,
-        colorId: '1',
-        habitatId: '1',
-        petalId: '',
-      ).map((plant) => plant.id),
-      ['2', '9'],
+      guideKeyCount(plants, colorId: '1', habitatId: '1', petalId: ''),
+      2,
     );
     final counts = guidePetalCountsFromPlants(
       plants,
       colorId: '1',
       habitatId: '1',
     );
-    expect(guideFilterKey(colorId: '1', habitatId: '1'), '1_1__');
-    expect(counts['1_1__'], 2);
+    expect(counts.total, 2);
+    expect(counts.byPetal['1'], 1);
+    expect(counts.byPetal['3'], 1);
     expect(
-      (counts['1'] ?? 0) +
-          (counts['2'] ?? 0) +
-          (counts['3'] ?? 0) +
-          (counts['4'] ?? 0),
+      (counts.byPetal['1'] ?? 0) +
+          (counts.byPetal['2'] ?? 0) +
+          (counts.byPetal['3'] ?? 0) +
+          (counts.byPetal['4'] ?? 0),
       3,
-    );
-    expect(
-      guidePetalTotal(counts, colorId: '1', habitatId: '1'),
-      2,
     );
 
     final anywhere = guidePetalCountsFromPlants(plants, colorId: '1');
-    expect(guideFilterKey(colorId: '1'), '1___');
-    expect(anywhere['1___'], 3);
-    expect(guidePetalTotal(anywhere, colorId: '1'), 3);
-    expect(guidePetalTotal(null, colorId: '1'), isNull);
+    expect(
+      guideKeyCount(plants, colorId: '1', petalId: ''),
+      3,
+    );
+    expect(anywhere.total, 3);
   });
 
   testWidgets('the skip count is the list, not the sum of the petal codes',
@@ -256,13 +255,10 @@ void main() {
     await _pump(
       tester,
       _page(
-        counts: const {
-          '1': 41,
-          '2': 89,
-          '3': 50,
-          '4': 78,
-          '1_1__': 239,
-        },
+        counts: const GuidePetalCounts(
+          total: 239,
+          byPetal: {'1': 41, '2': 89, '3': 50, '4': 78},
+        ),
       ),
     );
 
@@ -283,7 +279,10 @@ void main() {
     await _pump(
       tester,
       _page(
-        counts: const {'1': 4, '2': 5, '3': 6, '4': 7, '1_1__': 0},
+        counts: const GuidePetalCounts(
+          total: 0,
+          byPetal: {'1': 4, '2': 5, '3': 6, '4': 7},
+        ),
         onContinue: (id) => picked = id,
       ),
     );
@@ -375,8 +374,14 @@ void main() {
   });
 }
 
-const _withPlace = {'1': 41, '2': 89, '3': 50, '4': 78, '1_1__': 239};
-const _skipped = {'1': 125, '2': 80, '3': 141, '4': 90, '1___': 416};
+const _withPlace = GuidePetalCounts(
+  total: 239,
+  byPetal: {'1': 41, '2': 89, '3': 50, '4': 78},
+);
+const _skipped = GuidePetalCounts(
+  total: 416,
+  byPetal: {'1': 125, '2': 80, '3': 141, '4': 90},
+);
 
 GuideKeyPlant _keyPlant(
   String id,
@@ -445,8 +450,8 @@ Widget _openPetals({Key? petalKey}) {
 
 Widget _page({
   String? habitatId = '1',
-  Map<String, int>? counts,
-  Future<Map<String, int>> Function(String colorId, String? habitatId)?
+  GuidePetalCounts? counts,
+  Future<GuidePetalCounts> Function(String colorId, String? habitatId)?
       loadCounts,
   void Function(String? petalId)? onContinue,
 }) {

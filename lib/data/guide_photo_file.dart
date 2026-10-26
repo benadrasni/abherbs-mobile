@@ -291,8 +291,6 @@ bool _scrubTiff(
       final thumbStart = tiff + jpegOff;
       // The thumbnail lives in this EXIF segment. A length past the segment
       // would blank the picture that follows it.
-      // The thumbnail lives in this EXIF segment. A length past the segment
-      // would blank the picture that follows it.
       if (thumbStart < tiff || thumbStart >= limit) return false;
       var thumbEnd = thumbStart + jpegLen;
       if (thumbEnd > limit) thumbEnd = limit;
