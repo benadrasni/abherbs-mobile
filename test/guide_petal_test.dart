@@ -2,13 +2,37 @@ import 'dart:async';
 
 import 'package:abherbs_flutter/generated/l10n.dart';
 import 'package:abherbs_flutter/data/guide_data.dart';
+import 'package:abherbs_flutter/data/guide_results.dart';
 import 'package:abherbs_flutter/key/petal_glyphs.dart';
 import 'package:abherbs_flutter/key/petal_page.dart';
+import 'package:abherbs_flutter/key/results_page.dart';
 import 'package:abherbs_flutter/purchase/purchases.dart';
 import 'package:abherbs_flutter/shell/app_banner_ad.dart';
+import 'package:abherbs_flutter/shell/guide_actions.dart';
+import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _OfflineConnectivity extends ConnectivityPlatform {
+  @override
+  Future<List<ConnectivityResult>> checkConnectivity() async {
+    return const [ConnectivityResult.none];
+  }
+
+  @override
+  Stream<List<ConnectivityResult>> get onConnectivityChanged =>
+      const Stream.empty();
+}
+
+void _phoneOffline() {
+  final previous = ConnectivityPlatform.instance;
+  ConnectivityPlatform.instance = _OfflineConnectivity();
+  addTearDown(() {
+    ConnectivityPlatform.instance = previous;
+  });
+}
 
 void main() {
   setUp(() {
@@ -124,7 +148,10 @@ void main() {
     await _pump(
       tester,
       _page(
-        counts: const {'1': 0, '2': 0, '3': 0, '4': 0},
+        counts: const GuidePetalCounts(
+          total: 0,
+          byPetal: {'1': 0, '2': 0, '3': 0, '4': 0},
+        ),
         onContinue: (id) => picked = id,
       ),
     );
@@ -143,7 +170,7 @@ void main() {
 
   testWidgets('waits for the counts before skipping petals', (tester) async {
     var picked = false;
-    final pending = Completer<Map<String, int>>();
+    final pending = Completer<GuidePetalCounts>();
     addTearDown(() {
       if (!pending.isCompleted) pending.complete(_withPlace);
     });
@@ -169,7 +196,10 @@ void main() {
     await _pump(
       tester,
       _page(
-        counts: const {'1': 0, '2': 9, '3': 4, '4': 1},
+        counts: const GuidePetalCounts(
+          total: 14,
+          byPetal: {'1': 0, '2': 9, '3': 4, '4': 1},
+        ),
         onContinue: (id) => picked = id,
       ),
     );
@@ -178,6 +208,148 @@ void main() {
     expect(
         find.text('There are no flowers matching criteria.'), findsOneWidget);
     expect(picked, isNull);
+  });
+
+  test('an empty petal counts each plant once', () {
+    final plants = [
+      _keyPlant('2', 'Bellis perennis', petals: const {'1', '3'}),
+      _keyPlant('9', 'Rosa canina', petals: const {'2'}),
+      _keyPlant(
+        '10',
+        'Tulipa gesneriana',
+        habitats: const {'4'},
+        petals: const {'1'},
+      ),
+    ];
+
+    expect(
+      guideKeyCount(plants, colorId: '1', habitatId: '1', petalId: ''),
+      2,
+    );
+    final counts = guidePetalCountsFromPlants(
+      plants,
+      colorId: '1',
+      habitatId: '1',
+    );
+    expect(counts.total, 2);
+    expect(counts.byPetal['1'], 1);
+    expect(counts.byPetal['3'], 1);
+    expect(
+      (counts.byPetal['1'] ?? 0) +
+          (counts.byPetal['2'] ?? 0) +
+          (counts.byPetal['3'] ?? 0) +
+          (counts.byPetal['4'] ?? 0),
+      3,
+    );
+
+    final anywhere = guidePetalCountsFromPlants(plants, colorId: '1');
+    expect(
+      guideKeyCount(plants, colorId: '1', petalId: ''),
+      3,
+    );
+    expect(anywhere.total, 3);
+  });
+
+  testWidgets('the skip count is the list, not the sum of the petal codes',
+      (tester) async {
+    await _pump(
+      tester,
+      _page(
+        counts: const GuidePetalCounts(
+          total: 239,
+          byPetal: {'1': 41, '2': 89, '3': 50, '4': 78},
+        ),
+      ),
+    );
+
+    expect(find.text('41'), findsOneWidget);
+    expect(
+      find.text('Not sure? Show all 239 white, meadow plants'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Not sure? Show all 258 white, meadow plants'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('a zero list stays here even when petal codes add up',
+      (tester) async {
+    String? picked = 'unset';
+    await _pump(
+      tester,
+      _page(
+        counts: const GuidePetalCounts(
+          total: 0,
+          byPetal: {'1': 4, '2': 5, '3': 6, '4': 7},
+        ),
+        onContinue: (id) => picked = id,
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.text('Not sure? Show all 0 white, meadow plants'),
+    );
+    await tester.tap(find.text('Not sure? Show all 0 white, meadow plants'));
+    await tester.pump();
+    expect(
+      find.text('There are no flowers matching criteria.'),
+      findsOneWidget,
+    );
+    expect(picked, 'unset');
+  });
+
+  testWidgets('skip, back, skip keeps a single results route', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _phoneOffline();
+    await _pump(tester, _openPetals());
+    await tester.tap(find.text('open'));
+    await _advance(tester);
+
+    await _skip(tester);
+    expect(find.byType(GuideResultsPage, skipOffstage: false), findsOneWidget);
+
+    await tester.tap(find.text('Petals'));
+    await _advance(tester);
+    expect(find.text('How many petals?'), findsOneWidget);
+    expect(find.byType(GuideResultsPage, skipOffstage: false), findsNothing);
+
+    await _skip(tester);
+    expect(find.byType(GuideResultsPage, skipOffstage: false), findsOneWidget);
+
+    await tester.tap(find.text('Petals'));
+    await _advance(tester);
+    expect(find.text('How many petals?'), findsOneWidget);
+    expect(find.byType(GuideResultsPage, skipOffstage: false), findsNothing);
+  });
+
+  testWidgets('a results list already open is replaced', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    _phoneOffline();
+    final petalKey = GlobalKey();
+    await _pump(tester, _openPetals(petalKey: petalKey));
+    await tester.tap(find.text('open'));
+    await _advance(tester);
+
+    await _skip(tester);
+    expect(find.text('More than 5 petals'), findsNothing);
+
+    final context = petalKey.currentContext!;
+    openGuideResults(
+      context,
+      colorId: '1',
+      habitatId: '1',
+      petalId: '3',
+    );
+    await _advance(tester);
+
+    expect(find.byType(GuideResultsPage, skipOffstage: false), findsOneWidget);
+    expect(find.text('More than 5 petals'), findsOneWidget);
+
+    await tester.tap(find.text('More than 5 petals'));
+    await _advance(tester);
+    expect(find.text('How many petals?'), findsOneWidget);
+    expect(find.byType(GuideResultsPage, skipOffstage: false), findsNothing);
   });
 
   testWidgets('the color returns to Find and the place returns here',
@@ -202,13 +374,84 @@ void main() {
   });
 }
 
-const _withPlace = {'1': 41, '2': 89, '3': 50, '4': 59};
-const _skipped = {'1': 125, '2': 80, '3': 141, '4': 70};
+const _withPlace = GuidePetalCounts(
+  total: 239,
+  byPetal: {'1': 41, '2': 89, '3': 50, '4': 78},
+);
+const _skipped = GuidePetalCounts(
+  total: 416,
+  byPetal: {'1': 125, '2': 80, '3': 141, '4': 90},
+);
+
+GuideKeyPlant _keyPlant(
+  String id,
+  String name, {
+  Set<String> habitats = const {'1'},
+  required Set<String> petals,
+}) {
+  return GuideKeyPlant(
+    id: id,
+    name: name,
+    colors: const {'1'},
+    habitats: habitats,
+    petals: petals,
+    regions: const {'11'},
+    photoPath: null,
+    floweringFrom: 3,
+    floweringTo: 10,
+    cultivated: false,
+  );
+}
+
+Future<void> _advance(WidgetTester tester) async {
+  await tester.pump();
+  // The page transition is 450ms. The exiting route stays in the tree until
+  // that finishes.
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pump();
+}
+
+Future<void> _skip(WidgetTester tester) async {
+  const label = 'Not sure? Show all 239 white, meadow plants';
+  await tester.ensureVisible(find.text(label));
+  await tester.tap(find.text(label));
+  await _advance(tester);
+}
+
+Widget _openPetals({Key? petalKey}) {
+  return _app(
+    Builder(
+      builder: (context) => TextButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: guidePetalRouteName),
+              builder: (context) => GuidePetalPage(
+                key: petalKey,
+                colorId: '1',
+                habitatId: '1',
+                counts: _withPlace,
+                onContinue: (petalId) => openGuideResults(
+                  context,
+                  colorId: '1',
+                  habitatId: '1',
+                  petalId: petalId ?? '',
+                ),
+              ),
+            ),
+          );
+        },
+        child: const Text('open'),
+      ),
+    ),
+  );
+}
 
 Widget _page({
   String? habitatId = '1',
-  Map<String, int>? counts,
-  Future<Map<String, int>> Function(String colorId, String? habitatId)?
+  GuidePetalCounts? counts,
+  Future<GuidePetalCounts> Function(String colorId, String? habitatId)?
       loadCounts,
   void Function(String? petalId)? onContinue,
 }) {

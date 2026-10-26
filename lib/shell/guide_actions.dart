@@ -261,7 +261,10 @@ void openGuideResults(
   required String petalId,
 }) {
   final language = Localizations.localeOf(context).languageCode;
-  Navigator.push(
+  // Skip, back, skip would otherwise push a second list. The upper page's
+  // Petals control would then return to the old list. One results route
+  // stays above the petal step.
+  Navigator.pushAndRemoveUntil(
     context,
     MaterialPageRoute<void>(
       settings: const RouteSettings(name: guideResultsRouteName),
@@ -293,6 +296,7 @@ void openGuideResults(
         onTryPhoto: openGuideCamera,
       ),
     ),
+    (route) => route.settings.name != guideResultsRouteName,
   );
 }
 

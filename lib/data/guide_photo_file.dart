@@ -58,6 +58,10 @@ Future<void> deleteDiscardedShot(String path) {
 
 class _Scrub {
   bool changed = false;
+
+  /// First byte after the picture's end marker. A gain map follows that
+  /// marker; keeping those bytes would upload them.
+  int? keep;
 }
 
 class _Range {
@@ -74,6 +78,8 @@ Uint8List? _jpegWithoutLocation(Uint8List bytes) {
   final copy = Uint8List.fromList(bytes);
   final scrub = _Scrub();
   if (!_scrubJpeg(copy, 0, copy.length, 0, scrub)) return null;
+  final keep = scrub.keep;
+  if (keep != null) return copy.sublist(0, keep);
   return scrub.changed ? copy : bytes;
 }
 
@@ -99,8 +105,16 @@ bool _scrubJpeg(
     i++;
     if (marker == 0xD9) {
       // A gain map or a motion photo follows this marker and can carry the
-      // place. The picture ends here.
-      if (i < end) _blank(bytes, i, end, scrub);
+      // place. The picture ends here. The outer file drops the tail. A
+      // thumbnail stays in the middle of the file, so its tail is blanked.
+      if (i < end) {
+        if (depth == 0) {
+          scrub.keep = i;
+          scrub.changed = true;
+        } else {
+          _blank(bytes, i, end, scrub);
+        }
+      }
       return true;
     }
     if (marker == 0x00) return false;
@@ -275,8 +289,11 @@ bool _scrubTiff(
     }
     if (jpegOff != null && jpegLen != null && jpegLen > 0) {
       final thumbStart = tiff + jpegOff;
-      final thumbEnd = thumbStart + jpegLen;
-      if (thumbStart < tiff || thumbEnd > bytes.length) return false;
+      // The thumbnail lives in this EXIF segment. A length past the segment
+      // would blank the picture that follows it.
+      if (thumbStart < tiff || thumbStart >= limit) return false;
+      var thumbEnd = thumbStart + jpegLen;
+      if (thumbEnd > limit) thumbEnd = limit;
       thumbs.add(_Range(thumbStart, thumbEnd));
     }
     final next = u32(nextAt);

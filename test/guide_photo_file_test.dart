@@ -194,9 +194,10 @@ void main() {
 
   test('a gain map after the picture loses its place', () async {
     const place = 'GPSLatitude>48.1600N';
+    final head = _jpeg(little: false, gps: false);
     final gain = _jpeg(little: true);
     final picture = Uint8List.fromList([
-      ..._jpeg(little: false, gps: false),
+      ...head,
       ...gain,
       ...place.codeUnits,
     ]);
@@ -205,12 +206,54 @@ void main() {
 
     final stripped = await photoWithoutLocation(picture);
     expect(stripped, isNotNull);
-    expect(_contains(stripped!, _latitude), isFalse);
+    expect(stripped, head);
+    expect(stripped!.length, lessThan(picture.length));
+    expect(stripped[stripped.length - 2], 0xFF);
+    expect(stripped.last, 0xD9);
+    expect(_contains(stripped, _latitude), isFalse);
     expect(_contains(stripped, place.codeUnits), isFalse);
     expect(_contains(stripped, '2024:01:02 03:04:05'.codeUnits), isTrue);
     final tags = await readExifFromBytes(stripped);
     expect(tags['GPS GPSLatitude'], isNull);
     expect(tags['Image DateTime'].toString(), '2024:01:02 03:04:05');
+  });
+
+  test('bytes after the picture are dropped, not blanked', () async {
+    const place = 'GPSLatitude>48.1600N';
+    final head = _jpeg(little: true);
+    final picture = Uint8List.fromList([...head, ...place.codeUnits]);
+
+    final stripped = (await photoWithoutLocation(picture))!;
+    expect(stripped.length, head.length);
+    expect(stripped.length, lessThan(picture.length));
+    expect(_contains(stripped, place.codeUnits), isFalse);
+    expect(_contains(stripped, _latitude), isFalse);
+    expect(_contains(stripped, '2024:01:02 03:04:05'.codeUnits), isTrue);
+    expect(stripped[stripped.length - 2], 0xFF);
+    expect(stripped.last, 0xD9);
+  });
+
+  test('an overlong thumbnail length stays inside the exif segment', () async {
+    const sentinel = [0x4D, 0x41, 0x49, 0x4E, 0x49, 0x4D, 0x47];
+    final thumb = _jpeg(little: true);
+    final after = <int>[
+      0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, //
+      ...sentinel,
+    ];
+    final picture = _jpegWithThumbnail(
+      thumb,
+      declaredLength: thumb.length + after.length,
+      afterSegment: after,
+    );
+    expect(_contains(picture, sentinel), isTrue);
+    expect(_contains(picture, _latitude), isTrue);
+
+    final stripped = await photoWithoutLocation(picture);
+    expect(stripped, isNotNull);
+    expect(stripped!.length, picture.length);
+    expect(_contains(stripped, sentinel), isTrue);
+    expect(_contains(stripped, _latitude), isFalse);
+    expect(_contains(stripped, '2024:01:02 03:04:05'.codeUnits), isTrue);
   });
 
   test('xmp and a nested thumbnail lose their place', () async {
@@ -538,7 +581,11 @@ Uint8List _withSegment(Uint8List jpeg, Uint8List segment) {
   ]);
 }
 
-Uint8List _jpegWithThumbnail(Uint8List thumbnail) {
+Uint8List _jpegWithThumbnail(
+  Uint8List thumbnail, {
+  int? declaredLength,
+  List<int> afterSegment = const [],
+}) {
   final bytes = BytesBuilder();
   void u16(int value) {
     bytes.addByte(value & 0xFF);
@@ -572,7 +619,7 @@ Uint8List _jpegWithThumbnail(Uint8List thumbnail) {
   u16(0x0202);
   u16(4);
   u32(1);
-  u32(thumbnail.length);
+  u32(declaredLength ?? thumbnail.length);
   u32(0);
   bytes.add(thumbnail);
   final payload = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00, ...bytes.toBytes()];
@@ -585,6 +632,7 @@ Uint8List _jpegWithThumbnail(Uint8List thumbnail) {
     (length >> 8) & 0xFF,
     length & 0xFF,
     ...payload,
+    ...afterSegment,
     0xFF,
     0xD9,
   ]);

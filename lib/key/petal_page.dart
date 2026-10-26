@@ -37,20 +37,11 @@ String guidePetalFilterLabel(
   return strings.guide_petal_filter(color, habitat);
 }
 
-int? guidePetalTotal(Map<String, int>? counts) {
-  if (counts == null) return null;
-  var total = 0;
-  for (final id in guidePetalIds) {
-    total += counts[id] ?? 0;
-  }
-  return total;
-}
-
 class GuidePetalPage extends StatefulWidget {
   final String colorId;
   final String? habitatId;
-  final Map<String, int>? counts;
-  final Future<Map<String, int>> Function(String colorId, String? habitatId)
+  final GuidePetalCounts? counts;
+  final Future<GuidePetalCounts> Function(String colorId, String? habitatId)
       loadCounts;
   final void Function(String? petalId)? onContinue;
 
@@ -68,7 +59,7 @@ class GuidePetalPage extends StatefulWidget {
 }
 
 class _GuidePetalPageState extends State<GuidePetalPage> {
-  Map<String, int>? _counts;
+  GuidePetalCounts? _counts;
   bool _failed = false;
   int _ticket = 0;
 
@@ -114,7 +105,7 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
   void _pick(String id) {
     final counts = _counts;
     if (counts == null && !_failed) return;
-    final remaining = counts?[id];
+    final remaining = counts?.byPetal[id];
     if (remaining != null && remaining <= 0) {
       guideNoFlowers(context);
       return;
@@ -125,8 +116,7 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
   void _skip() {
     final counts = _counts;
     if (counts == null && !_failed) return;
-    final total = guidePetalTotal(counts);
-    if (total != null && total <= 0) {
+    if (counts != null && counts.total <= 0) {
       guideNoFlowers(context);
       return;
     }
@@ -264,7 +254,7 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
   }
 
   String _skipLabel(S strings, String filter) {
-    final total = guidePetalTotal(_counts);
+    final total = _counts?.total;
     if (total == null) return strings.guide_petal_skip(filter);
     return strings.guide_petal_skip_count(total, filter);
   }
@@ -292,7 +282,7 @@ class _ColorDot extends StatelessWidget {
 class _PetalRow extends StatelessWidget {
   final List<String> ids;
   final int columns;
-  final Map<String, int>? counts;
+  final GuidePetalCounts? counts;
   final ValueChanged<String> onPick;
 
   const _PetalRow({
@@ -317,7 +307,7 @@ class _PetalRow extends StatelessWidget {
   Widget _tile(BuildContext context, String id) {
     final colors = GuideColors.of(context);
     final strings = S.of(context);
-    final remaining = counts?[id];
+    final remaining = counts?.byPetal[id];
     return Material(
       color: colors.cream,
       shape: RoundedRectangleBorder(
