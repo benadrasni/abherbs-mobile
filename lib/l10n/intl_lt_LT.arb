@@ -198,6 +198,7 @@
   "guide_camera_title": "Atpažinti iš nuotraukos",
   "guide_camera_body": "Bet koks augalas, laukinis ar vazone. Puslapis atsidaro, jei jis yra atlase.",
   "guide_meter_unlimited": "Neribotai",
+  "guide_meter_field_guide": "Lauko gidas - neribotai",
   "guide_meter_left": "{count, plural, one{liko {count} atpažinimas} few{liko {count} atpažinimai} many{liko {count} atpažinimo} other{liko {count} atpažinimų}}",
   "guide_meter_sign_in": "Prisijunkite, kad atpažintumėte nuotrauką",
   "guide_key_step": "Nustatyti raktu · 1 iš 3",

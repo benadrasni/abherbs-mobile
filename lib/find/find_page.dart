@@ -286,6 +286,7 @@ class _Meter extends StatelessWidget {
     final meter = guideCameraMeter(allowance);
     switch (meter.kind) {
       case GuideCameraMeterKind.fieldGuide:
+        return Text(S.of(context).guide_meter_field_guide, style: style);
       case GuideCameraMeterKind.unlimited:
         return Text(S.of(context).guide_meter_unlimited, style: style);
       case GuideCameraMeterKind.signIn:

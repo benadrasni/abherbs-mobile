@@ -198,6 +198,7 @@
   "guide_camera_title": "Noteikt pēc fotoattēla",
   "guide_camera_body": "Jebkurš augs, savvaļas vai podā. Lapa atveras, ja tas ir atlantā.",
   "guide_meter_unlimited": "Neierobežoti",
+  "guide_meter_field_guide": "Lauka ceļvedis - neierobežoti",
   "guide_meter_left": "{count, plural, zero{atlikušas {count} noteikšanu} one{atlikusi {count} noteikšana} other{atlikušas {count} noteikšanas}}",
   "guide_meter_sign_in": "Pierakstieties, lai noteiktu fotoattēlu",
   "guide_key_step": "Noteikt ar noteicēju · 1 no 3",

@@ -198,6 +198,7 @@
   "guide_camera_title": "Bir fotoğraftan adlandırın",
   "guide_camera_body": "Her bitki, yabani veya saksıda. Kitapta varsa sayfası açılır.",
   "guide_meter_unlimited": "Sınırsız",
+  "guide_meter_field_guide": "Arazi rehberi - sınırsız",
   "guide_meter_left": "{count, plural, =1{1 teşhis kaldı} one{1 teşhis kaldı} other{{count} teşhis kaldı}}",
   "guide_meter_sign_in": "Fotoğraf adlandırmak için oturum açın",
   "guide_key_step": "Anahtarla belirleyin · 1 / 3",

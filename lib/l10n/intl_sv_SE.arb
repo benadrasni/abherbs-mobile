@@ -198,6 +198,7 @@
   "guide_camera_title": "Bestäm den från ett foto",
   "guide_camera_body": "Vilken växt som helst, vild eller i kruka. Sidan öppnas när den finns i atlasen.",
   "guide_meter_unlimited": "Obegränsat",
+  "guide_meter_field_guide": "Fältguide - obegränsat",
   "guide_meter_left": "{count, plural, =1{1 bestämning kvar} other{{count} bestämningar kvar}}",
   "guide_meter_sign_in": "Logga in för att bestämma ett foto",
   "guide_key_step": "Nyckla · 1 av 3",

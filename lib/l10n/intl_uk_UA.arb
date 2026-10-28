@@ -198,6 +198,7 @@
   "guide_camera_title": "Визначити за фото",
   "guide_camera_body": "Будь-яка рослина, дика чи в горщику. Сторінка відкриється, якщо вона є в атласі.",
   "guide_meter_unlimited": "Без ліміту",
+  "guide_meter_field_guide": "Польовий визначник - без ліміту",
   "guide_meter_left": "{count, plural, =1{залишилося 1 визначення} one{залишилося {count} визначення} few{залишилося {count} визначення} many{залишилося {count} визначень} other{залишилося {count} визначення}}",
   "guide_meter_sign_in": "Увійдіть, щоб визначити за фото",
   "guide_key_step": "Визначте за ключем · 1 з 3",

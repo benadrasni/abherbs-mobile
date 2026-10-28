@@ -198,6 +198,7 @@
   "guide_camera_title": "用照片辨識",
   "guide_camera_body": "野生或盆栽都可以。圖鑑裡有，就會打開頁面。",
   "guide_meter_unlimited": "不限",
+  "guide_meter_field_guide": "野外手冊 - 不限次數",
   "guide_meter_left": "{count, plural, one{剩餘{count}次辨識} other{剩餘{count}次辨識}}",
   "guide_meter_sign_in": "登入後即可辨識照片",
   "guide_key_step": "用檢索表查 · 1/3",

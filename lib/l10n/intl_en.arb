@@ -196,6 +196,7 @@
   "guide_camera_title": "Name it from a photo",
   "guide_camera_body": "Any plant, wild or potted. Pages open when it’s in the book.",
   "guide_meter_unlimited": "Unlimited",
+  "guide_meter_field_guide": "Field Guide - unlimited",
   "guide_meter_left": "{count, plural, =1{1 name left} other{{count} names left}}",
   "guide_meter_sign_in": "Sign in to name a photo",
   "guide_key_step": "Key it out · 1 of 3",

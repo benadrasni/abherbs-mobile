@@ -198,6 +198,7 @@
   "guide_camera_title": "写真で判定",
   "guide_camera_body": "野生でも鉢植えでも。図鑑にあればページが開きます。",
   "guide_meter_unlimited": "無制限",
+  "guide_meter_field_guide": "フィールドガイド - 無制限",
   "guide_meter_left": "{count, plural, one{判定があと{count}件} other{判定があと{count}件}}",
   "guide_meter_sign_in": "ログインして写真を判定",
   "guide_key_step": "検索表で調べる · 1/3",

@@ -198,6 +198,7 @@
   "guide_camera_title": "Одредите по фотографији",
   "guide_camera_body": "Било која биљка, дивља или у саксији. Страница се отвара ако је у атласу.",
   "guide_meter_unlimited": "Неограничено",
+  "guide_meter_field_guide": "Теренски водич - неограничено",
   "guide_meter_left": "{count, plural, =1{још 1 одређивање} one{још {count} одређивање} few{још {count} одређивања} other{још {count} одређивања}}",
   "guide_meter_sign_in": "Пријавите се за одређивање фотографије",
   "guide_key_step": "Одредите по кључу · 1 од 3",

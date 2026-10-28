@@ -198,6 +198,7 @@
   "guide_camera_title": "از روی یک عکس نام بگذارید",
   "guide_camera_body": "هر گیاهی، خودرو یا گلدانی. اگر در کتاب باشد صفحه‌اش باز می‌شود.",
   "guide_meter_unlimited": "نامحدود",
+  "guide_meter_field_guide": "راهنمای صحرایی - نامحدود",
   "guide_meter_left": "{count, plural, one{1 شناسایی مانده} other{{count} شناسایی مانده}}",
   "guide_meter_sign_in": "برای نام گذاشتن روی عکس وارد شوید",
   "guide_key_step": "با کلید بشناسید · 1 از 3",

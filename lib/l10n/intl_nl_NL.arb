@@ -198,6 +198,7 @@
   "guide_camera_title": "Determineer het op een foto",
   "guide_camera_body": "Elke plant, wild of in pot. De pagina opent als hij in de atlas staat.",
   "guide_meter_unlimited": "Onbeperkt",
+  "guide_meter_field_guide": "Veldgids - onbeperkt",
   "guide_meter_left": "{count, plural, =1{nog 1 determinatie} other{nog {count} determinaties}}",
   "guide_meter_sign_in": "Log in om een foto te determineren",
   "guide_key_step": "Met de sleutel · 1 van 3",

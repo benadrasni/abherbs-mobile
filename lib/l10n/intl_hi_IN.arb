@@ -198,6 +198,7 @@
   "guide_camera_title": "फ़ोटो से नाम बताएँ",
   "guide_camera_body": "कोई भी पौधा, जंगली या गमले में। पृष्ठ तब खुलता है जब वह पुस्तक में हो।",
   "guide_meter_unlimited": "असीमित",
+  "guide_meter_field_guide": "फील्ड गाइड - असीमित",
   "guide_meter_left": "{count, plural, =1{1 पहचान शेष} one{{count} पहचान शेष} other{{count} पहचान शेष}}",
   "guide_meter_sign_in": "फ़ोटो का नाम बताने के लिए प्रवेश करें",
   "guide_key_step": "कुंजी से पहचानें · 1 / 3",

@@ -198,6 +198,7 @@
   "guide_camera_title": "Tunnista kuvasta",
   "guide_camera_body": "Mikä tahansa kasvi, luonnonvarainen tai ruukussa. Sivu avautuu, jos se on atlaksessa.",
   "guide_meter_unlimited": "Rajattomasti",
+  "guide_meter_field_guide": "Maasto-opas - rajattomasti",
   "guide_meter_left": "{count, plural, =1{1 tunnistus jäljellä} one{{count} tunnistus jäljellä} other{{count} tunnistusta jäljellä}}",
   "guide_meter_sign_in": "Kirjaudu sisään, jotta voit tunnistaa kuvasta",
   "guide_key_step": "Tunnista avaimella · 1/3",

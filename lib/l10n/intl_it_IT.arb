@@ -198,6 +198,7 @@
   "guide_camera_title": "Identifica da una foto",
   "guide_camera_body": "Qualsiasi pianta, spontanea o in vaso. La scheda si apre se è nell'atlante.",
   "guide_meter_unlimited": "Senza limite",
+  "guide_meter_field_guide": "Guida di campo - senza limite",
   "guide_meter_left": "{count, plural, =1{1 identificazione rimasta} other{{count} identificazioni rimaste}}",
   "guide_meter_sign_in": "Accedi per identificare una foto",
   "guide_key_step": "Usa la chiave · 1 di 3",

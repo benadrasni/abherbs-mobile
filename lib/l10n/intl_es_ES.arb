@@ -198,6 +198,7 @@
   "guide_camera_title": "Identificar con una foto",
   "guide_camera_body": "Cualquier planta, silvestre o en maceta. La ficha se abre si está en el atlas.",
   "guide_meter_unlimited": "Sin límite",
+  "guide_meter_field_guide": "Guía de campo - sin límite",
   "guide_meter_left": "{count, plural, =1{1 identificación restante} other{{count} identificaciones restantes}}",
   "guide_meter_sign_in": "Inicia sesión para identificar una foto",
   "guide_key_step": "Usa la clave · 1 de 3",

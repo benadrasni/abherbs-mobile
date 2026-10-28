@@ -198,6 +198,7 @@
   "guide_camera_title": "Identifique a partir de uma foto",
   "guide_camera_body": "Qualquer planta, silvestre ou em vaso. A página abre se estiver no atlas.",
   "guide_meter_unlimited": "Sem limite",
+  "guide_meter_field_guide": "Guia de campo - sem limite",
   "guide_meter_left": "{count, plural, =1{1 identificação restante} other{{count} identificações restantes}}",
   "guide_meter_sign_in": "Inicie sessão para identificar uma foto",
   "guide_key_step": "Use a chave · 1 de 3",

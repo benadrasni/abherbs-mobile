@@ -198,6 +198,7 @@
   "guide_camera_title": "سمه من صورة",
   "guide_camera_body": "أي نبات، بري أو في أصيص. تفتح صفحته إذا كان في الكتاب.",
   "guide_meter_unlimited": "غير محدود",
+  "guide_meter_field_guide": "الدليل الميداني - غير محدود",
   "guide_meter_left": "{count, plural, zero{لا تعرّف متبق} =1{تعرّف واحد متبق} one{تعرّف واحد متبق} two{تعرّفان متبقيان} few{{count} تعرّفات متبقية} many{{count} تعرّف متبق} other{{count} تعرّف متبق}}",
   "guide_meter_sign_in": "سجل الدخول لتسمية صورة",
   "guide_key_step": "حدده بالمفتاح · 1 من 3",

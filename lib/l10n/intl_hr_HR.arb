@@ -198,6 +198,7 @@
   "guide_camera_title": "Odredite s fotografije",
   "guide_camera_body": "Bilo koja biljka, divlja ili u posudi. Stranica se otvara ako je u atlasu.",
   "guide_meter_unlimited": "Neograničeno",
+  "guide_meter_field_guide": "Terenski vodič - neograničeno",
   "guide_meter_left": "{count, plural, =1{još 1 određivanje} one{još {count} određivanje} few{još {count} određivanja} other{još {count} određivanja}}",
   "guide_meter_sign_in": "Prijavite se za određivanje fotografije",
   "guide_key_step": "Odredite po ključu · 1 od 3",

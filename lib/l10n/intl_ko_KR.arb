@@ -198,6 +198,7 @@
   "guide_camera_title": "사진으로 판정",
   "guide_camera_body": "야생이든 화분이든 어떤 식물이든 돼요. 도감에 있으면 페이지가 열려요.",
   "guide_meter_unlimited": "무제한",
+  "guide_meter_field_guide": "필드 가이드 - 무제한",
   "guide_meter_left": "{count, plural, one{판정 {count}회 남음} other{판정 {count}회 남음}}",
   "guide_meter_sign_in": "로그인하고 사진을 판정해요",
   "guide_key_step": "검색표로 찾아요 · 1/3",

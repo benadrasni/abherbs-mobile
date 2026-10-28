@@ -198,6 +198,7 @@
   "guide_camera_title": "Identifier d'après une photo",
   "guide_camera_body": "N'importe quelle plante, sauvage ou en pot. La fiche s'ouvre si elle est dans l'atlas.",
   "guide_meter_unlimited": "Sans limite",
+  "guide_meter_field_guide": "Guide de terrain - sans limite",
   "guide_meter_left": "{count, plural, =1{1 identification restante} other{{count} identifications restantes}}",
   "guide_meter_sign_in": "Connectez-vous pour identifier une photo",
   "guide_key_step": "Utilisez la clé · 1 sur 3",

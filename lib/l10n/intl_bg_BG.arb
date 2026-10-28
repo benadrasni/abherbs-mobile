@@ -198,6 +198,7 @@
   "guide_camera_title": "Разпознайте по снимка",
   "guide_camera_body": "Всяко растение, диво или в саксия. Страницата се отваря, ако е в атласа.",
   "guide_meter_unlimited": "Неограничено",
+  "guide_meter_field_guide": "Полеви определител - неограничено",
   "guide_meter_left": "{count, plural, =1{още 1 разпознаване} one{още {count} разпознаване} other{още {count} разпознавания}}",
   "guide_meter_sign_in": "Влезте, за да разпознаете снимка",
   "guide_key_step": "Определете с ключ · 1 от 3",

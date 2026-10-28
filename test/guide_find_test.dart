@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:abherbs_flutter/seen/observation.dart';
 import 'package:abherbs_flutter/generated/l10n.dart';
 import 'package:abherbs_flutter/find/find_page.dart';
@@ -532,6 +534,69 @@ void main() {
     expect(find.text('Find'), findsOneWidget);
   });
 
+  testWidgets('selects the icon for the open tab', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(_tabs(index: 1));
+
+    expect(
+      tester.widget<Text>(find.text('Book')).style?.fontWeight,
+      FontWeight.w600,
+    );
+    expect(
+      tester.widget<Text>(find.text('Book')).style?.color,
+      GuideColors.light.moss,
+    );
+    expect(
+      tester.widget<Text>(find.text('Find')).style?.fontWeight,
+      FontWeight.w400,
+    );
+    expect(
+      tester.widget<Text>(find.text('Seen')).style?.fontWeight,
+      FontWeight.w400,
+    );
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Book, Tab 2 of 3'))
+          .flagsCollection
+          .isSelected,
+      Tristate.isTrue,
+    );
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Find, Tab 1 of 3'))
+          .flagsCollection
+          .isSelected,
+      Tristate.isFalse,
+    );
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Seen, Tab 3 of 3'))
+          .flagsCollection
+          .isSelected,
+      Tristate.isFalse,
+    );
+
+    final pill = tester.getRect(find.byKey(guideTabIndicatorKey));
+    final book = tester.getRect(find.byIcon(Icons.menu_book_outlined));
+    expect(pill.width, 64);
+    expect(pill.height, 32);
+    expect(pill.contains(book.center), isTrue);
+    expect(find.byKey(guideTabIndicatorKey), findsOneWidget);
+    final paint = tester.widget<DecoratedBox>(find.byKey(guideTabIndicatorKey));
+    expect(
+      (paint.decoration as BoxDecoration).color,
+      GuideColors.light.paper2,
+    );
+    expect(
+      (paint.decoration as BoxDecoration).borderRadius,
+      BorderRadius.circular(16),
+    );
+
+    await tester.pumpWidget(_tabs(index: 0, personOn: true));
+    expect(find.byKey(guideTabIndicatorKey), findsNothing);
+    handle.dispose();
+  });
+
   testWidgets('shows the unconfirmed count on the Seen icon', (tester) async {
     GuideTabs.unconfirmed.value = 3;
     await tester.pumpWidget(_tabs());
@@ -729,6 +794,25 @@ void main() {
     );
   });
 
+  testWidgets('a Field Guide shows Field Guide - unlimited on the photo card',
+      (tester) async {
+    await _pump(
+      tester,
+      _page(
+        finds: const [],
+        lists: const [],
+        allowance: const GuideAllowance.unlimited(
+          fieldGuide: true,
+          unlimitedNames: true,
+          noAds: true,
+          seenSynced: true,
+        ),
+      ),
+    );
+    expect(find.text('Field Guide - unlimited'), findsOneWidget);
+    expect(find.text('Unlimited'), findsNothing);
+  });
+
   testWidgets('asks a signed-out reader to sign in', (tester) async {
     Purchases.replaceAccountProducts({_noAds().productID});
     await _pump(tester, _page(finds: const [], lists: const []));
@@ -767,7 +851,7 @@ void main() {
   });
 }
 
-Widget _tabs() {
+Widget _tabs({int index = 0, bool personOn = false}) {
   return MaterialApp(
     locale: const Locale('en'),
     localizationsDelegates: const [
@@ -779,7 +863,11 @@ Widget _tabs() {
     supportedLocales: S.delegate.supportedLocales,
     home: Scaffold(
       body: const SizedBox.shrink(),
-      bottomNavigationBar: GuideBottomBar(index: 0, onSelect: (_) {}),
+      bottomNavigationBar: GuideBottomBar(
+        index: index,
+        personOn: personOn,
+        onSelect: (_) {},
+      ),
     ),
   );
 }

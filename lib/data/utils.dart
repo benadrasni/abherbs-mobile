@@ -433,6 +433,10 @@ Future<File?> _localImage(String url) async {
   }
 }
 
+/// Replaces the disk lookup in tests. Production leaves this null.
+@visibleForTesting
+Future<File?> Function(String url, String? cover)? debugResolveThumb;
+
 /// The file for a thumbnail. A photo already on the phone wins. When that
 /// file is missing, [cover] is the book photo from an offline pack.
 Future<File?> _thumbFile(String url, String? cover) async {
@@ -450,46 +454,122 @@ Widget getImage(String url, Widget placeholder,
     double width = 50.0,
     double height = 50.0,
     BoxFit fit = BoxFit.contain}) {
-  return FutureBuilder<File?>(
-      future: _thumbFile(url, cover),
-      builder: (BuildContext context, AsyncSnapshot<File?> snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          if (snapshot.data != null) {
-            return Image.file(
-              snapshot.data as File,
-              fit: fit,
-              width: width,
-              height: height,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: width,
-                  height: height,
-                  child: Icon(
-                    Icons.error,
-                    color: Theme.of(context).secondaryHeaderColor,
-                    size: 80.0,
-                  ),
-                );
-              },
-            );
-          }
+  return _ResolvedThumb(
+    url: url,
+    cover: cover,
+    placeholder: placeholder,
+    width: width,
+    height: height,
+    fit: fit,
+  );
+}
 
-          return CachedNetworkImage(
-            fit: fit,
-            width: width,
-            height: height,
-            placeholder: (context, url) => placeholder,
-            errorWidget: (context, url, error) => Container(
-                width: width,
-                height: height,
-                child: Icon(Icons.error,
-                    color: Theme.of(context).secondaryHeaderColor, size: 80.0)),
-            imageUrl: storageEndpoint + url,
-          );
-        } else {
-          return placeholder;
-        }
-      });
+/// Keeps the disk lookup alive across rebuilds.
+///
+/// A future created in [build] shows the placeholder again on every parent
+/// rebuild. Find paints several times as it opens (lists, the account, a
+/// second read of Seen lately), and each pass flashed thumbnails that were
+/// already on screen.
+class _ResolvedThumb extends StatefulWidget {
+  final String url;
+  final String? cover;
+  final Widget placeholder;
+  final double width;
+  final double height;
+  final BoxFit fit;
+
+  const _ResolvedThumb({
+    required this.url,
+    required this.cover,
+    required this.placeholder,
+    required this.width,
+    required this.height,
+    required this.fit,
+  });
+
+  @override
+  State<_ResolvedThumb> createState() => _ResolvedThumbState();
+}
+
+class _ResolvedThumbState extends State<_ResolvedThumb> {
+  File? _file;
+  var _ready = false;
+  var _token = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ResolvedThumb oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url || oldWidget.cover != widget.cover) {
+      _resolve();
+    }
+  }
+
+  void _resolve() {
+    final url = widget.url;
+    final cover = widget.cover;
+    final token = ++_token;
+    // A photo already on screen stays there. Blanking here is the flash:
+    // the next finds read often carries the same file with a new cover.
+    if (!_ready) _file = null;
+    unawaited(_load(url, cover, token));
+  }
+
+  Future<void> _load(String url, String? cover, int token) async {
+    File? file;
+    try {
+      final resolve = debugResolveThumb ?? _thumbFile;
+      file = await resolve(url, cover);
+    } catch (error) {
+      debugPrint('thumb $url: $error');
+    }
+    if (!mounted || token != _token) return;
+    setState(() {
+      _file = file;
+      _ready = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready) return widget.placeholder;
+    final file = _file;
+    if (file != null) {
+      return Image.file(
+        file,
+        fit: widget.fit,
+        width: widget.width,
+        height: widget.height,
+        gaplessPlayback: true,
+        errorBuilder: (context, error, stackTrace) => _broken(context),
+      );
+    }
+    return CachedNetworkImage(
+      fit: widget.fit,
+      width: widget.width,
+      height: widget.height,
+      placeholder: (context, url) => widget.placeholder,
+      errorWidget: (context, url, error) => _broken(context),
+      imageUrl: storageEndpoint + widget.url,
+    );
+  }
+
+  Widget _broken(BuildContext context) {
+    return Container(
+      width: widget.width,
+      height: widget.height,
+      child: Icon(
+        Icons.error,
+        color: Theme.of(context).secondaryHeaderColor,
+        size: 80.0,
+      ),
+    );
+  }
 }
 
 String getTaxonLabel(BuildContext context, String taxon) {

@@ -198,6 +198,7 @@
   "guide_camera_title": "Per Foto bestimmen",
   "guide_camera_body": "Jede Pflanze, wild oder im Topf. Die Seite öffnet sich, wenn sie im Atlas ist.",
   "guide_meter_unlimited": "Unbegrenzt",
+  "guide_meter_field_guide": "Feldführer - unbegrenzt",
   "guide_meter_left": "{count, plural, =1{1 Bestimmung übrig} other{{count} Bestimmungen übrig}}",
   "guide_meter_sign_in": "Melde dich an, um ein Foto zu bestimmen",
   "guide_key_step": "Mit dem Schlüssel · 1 von 3",

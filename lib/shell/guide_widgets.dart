@@ -433,7 +433,11 @@ Widget guideChromeFrame(
             ),
           ),
           if (showAd) const AppBannerAd(pinned: true),
-          _GuideFoldTabs(index: index, onSelect: onSelect),
+          _GuideFoldTabs(
+            index: index,
+            personOn: personOn,
+            onSelect: onSelect,
+          ),
         ],
       ),
     );
@@ -462,6 +466,7 @@ Widget guideChromeFrame(
     );
     final column = _GuideSideTabs(
       index: index,
+      personOn: personOn,
       side: chrome.side,
       onRight: chrome.onRight,
       onSelect: onSelect,
@@ -492,6 +497,7 @@ Widget guideChromeFrame(
         ? null
         : GuideBottomBar(
             index: index,
+            personOn: personOn,
             showAd: showAd,
             onSelect: onSelect,
           ),
@@ -569,16 +575,21 @@ class _TabSemantics extends StatelessWidget {
 }
 
 /// Find, Book, and Seen. [showAd] pins the free-account banner above the tabs.
+///
+/// [personOn] is Account. None of these three icons is that page, so none
+/// is selected.
 class GuideBottomBar extends StatelessWidget {
   final int index;
   final ValueChanged<int> onSelect;
   final bool showAd;
+  final bool personOn;
 
   const GuideBottomBar({
     super.key,
     required this.index,
     required this.onSelect,
     this.showAd = false,
+    this.personOn = false,
   });
 
   @override
@@ -587,7 +598,11 @@ class GuideBottomBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (showAd) const AppBannerAd(pinned: true),
-        GuideTabBar(index: index, onSelect: onSelect),
+        GuideTabBar(
+          index: index,
+          personOn: personOn,
+          onSelect: onSelect,
+        ),
       ],
     );
   }
@@ -595,12 +610,25 @@ class GuideBottomBar extends StatelessWidget {
 
 const guideUnconfirmedBadgeKey = Key('guide-seen-unconfirmed');
 
+/// The open tab’s pill. Same mark as the mushroom bar: a 64×32 stadium
+/// in [GuideColors.paper2] behind the icon.
+const guideTabIndicatorKey = Key('guide-tab-indicator');
+
+/// A tab icon is selected only on the page it opens. Account is not one
+/// of these pages.
+bool _tabOn(int tab, int index, bool personOn) => !personOn && tab == index;
+
 /// Find, Book, and Seen in equal thirds. Book is the center of the bar.
 class _GuideFoldTabs extends StatelessWidget {
   final int index;
+  final bool personOn;
   final ValueChanged<int> onSelect;
 
-  const _GuideFoldTabs({required this.index, required this.onSelect});
+  const _GuideFoldTabs({
+    required this.index,
+    required this.onSelect,
+    this.personOn = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -624,6 +652,7 @@ class _GuideFoldTabs extends StatelessWidget {
                   decoration: BoxDecoration(border: Border(top: rule)),
                   child: GuideTabBar(
                     index: index,
+                    personOn: personOn,
                     onSelect: onSelect,
                     framed: false,
                   ),
@@ -671,6 +700,7 @@ class _GuideFoldTabs extends StatelessWidget {
                       creaseLeft: creaseLeft,
                       creaseRight: creaseRight,
                       selected: index,
+                      personOn: personOn,
                       onSelect: onSelect,
                       colors: colors,
                     ),
@@ -695,6 +725,7 @@ Widget _foldTabSlot(
   required double creaseLeft,
   required double creaseRight,
   required int selected,
+  required bool personOn,
   required ValueChanged<int> onSelect,
   required GuideColors colors,
 }) {
@@ -732,7 +763,7 @@ Widget _foldTabSlot(
     child: ValueListenableBuilder<int>(
       valueListenable: GuideTabs.unconfirmed,
       builder: (context, unconfirmed, _) {
-        final on = tab == selected;
+        final on = _tabOn(tab, selected, personOn);
         final ink = on ? colors.moss : colors.ink3;
         return _TabSemantics(
           spoken: _tabSpoken(
@@ -757,6 +788,7 @@ Widget _foldTabSlot(
                     _TabIcon(
                       icon: items[tab].$2,
                       color: ink,
+                      selected: on,
                       unconfirmed: tab == 2 ? unconfirmed : 0,
                     ),
                     const SizedBox(height: 3),
@@ -787,6 +819,7 @@ class GuideTabBar extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final List<int> indexes;
   final bool framed;
+  final bool personOn;
 
   const GuideTabBar({
     super.key,
@@ -794,6 +827,7 @@ class GuideTabBar extends StatelessWidget {
     required this.onSelect,
     this.indexes = const [0, 1, 2],
     this.framed = true,
+    this.personOn = false,
   });
 
   @override
@@ -822,7 +856,7 @@ class GuideTabBar extends StatelessWidget {
                       items.length,
                       unconfirmed: i == 2 ? unconfirmed : 0,
                     ),
-                    selected: i == index,
+                    selected: _tabOn(i, index, personOn),
                     onPressed: () => onSelect(i),
                     child: InkWell(
                       onTap: () => onSelect(i),
@@ -832,7 +866,10 @@ class GuideTabBar extends StatelessWidget {
                         children: [
                           _TabIcon(
                             icon: items[i].$2,
-                            color: i == index ? colors.moss : colors.ink3,
+                            color: _tabOn(i, index, personOn)
+                                ? colors.moss
+                                : colors.ink3,
+                            selected: _tabOn(i, index, personOn),
                             unconfirmed: i == 2 ? unconfirmed : 0,
                           ),
                           const SizedBox(height: 3),
@@ -840,10 +877,12 @@ class GuideTabBar extends StatelessWidget {
                             items[i].$1,
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: i == index
+                              fontWeight: _tabOn(i, index, personOn)
                                   ? FontWeight.w600
                                   : FontWeight.w400,
-                              color: i == index ? colors.moss : colors.ink3,
+                              color: _tabOn(i, index, personOn)
+                                  ? colors.moss
+                                  : colors.ink3,
                             ),
                           ),
                         ],
@@ -874,6 +913,7 @@ class GuideTabBar extends StatelessWidget {
 /// clock and the Dynamic Island keep the top of that column.
 class _GuideSideTabs extends StatelessWidget {
   final int index;
+  final bool personOn;
   final double side;
   final bool onRight;
   final ValueChanged<int> onSelect;
@@ -883,6 +923,7 @@ class _GuideSideTabs extends StatelessWidget {
     required this.side,
     required this.onRight,
     required this.onSelect,
+    this.personOn = false,
   });
 
   @override
@@ -925,7 +966,7 @@ class _GuideSideTabs extends StatelessWidget {
                           items.length,
                           unconfirmed: i == 2 ? unconfirmed : 0,
                         ),
-                        selected: i == index,
+                        selected: _tabOn(i, index, personOn),
                         onPressed: () => onSelect(i),
                         child: InkWell(
                           onTap: () => onSelect(i),
@@ -941,8 +982,10 @@ class _GuideSideTabs extends StatelessWidget {
                                 children: [
                                   _TabIcon(
                                     icon: items[i].$2,
-                                    color:
-                                        i == index ? colors.moss : colors.ink3,
+                                    color: _tabOn(i, index, personOn)
+                                        ? colors.moss
+                                        : colors.ink3,
+                                    selected: _tabOn(i, index, personOn),
                                     unconfirmed: i == 2 ? unconfirmed : 0,
                                   ),
                                   const SizedBox(height: 3),
@@ -954,10 +997,10 @@ class _GuideSideTabs extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 11,
                                       height: 1.15,
-                                      fontWeight: i == index
+                                      fontWeight: _tabOn(i, index, personOn)
                                           ? FontWeight.w600
                                           : FontWeight.w400,
-                                      color: i == index
+                                      color: _tabOn(i, index, personOn)
                                           ? colors.moss
                                           : colors.ink3,
                                     ),
@@ -982,30 +1025,51 @@ class _GuideSideTabs extends StatelessWidget {
 class _TabIcon extends StatelessWidget {
   final IconData icon;
   final Color color;
+  final bool selected;
   final int unconfirmed;
 
   const _TabIcon({
     required this.icon,
     required this.color,
     required this.unconfirmed,
+    this.selected = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final glyph = Icon(icon, size: 24, color: color);
-    if (unconfirmed <= 0) return glyph;
     return SizedBox(
-      width: 24,
-      height: 24,
+      width: 64,
+      height: 32,
       child: Stack(
-        clipBehavior: Clip.none,
         alignment: Alignment.center,
+        clipBehavior: Clip.none,
         children: [
-          glyph,
-          PositionedDirectional(
-            top: 1,
-            end: -8,
-            child: _UnconfirmedBadge(count: unconfirmed),
+          if (selected)
+            DecoratedBox(
+              key: guideTabIndicatorKey,
+              decoration: BoxDecoration(
+                color: GuideColors.of(context).paper2,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const SizedBox(width: 64, height: 32),
+            ),
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                glyph,
+                if (unconfirmed > 0)
+                  PositionedDirectional(
+                    top: 1,
+                    end: -8,
+                    child: _UnconfirmedBadge(count: unconfirmed),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1085,7 +1149,7 @@ class GuideSideRail extends StatelessWidget {
                       _RailButton(
                         label: item.$2,
                         icon: item.$3,
-                        selected: !personOn && GuideTabs.index == item.$1,
+                        selected: _tabOn(item.$1, GuideTabs.index, personOn),
                         unconfirmed: item.$1 == 2 ? unconfirmed : 0,
                         tabIndex: item.$1,
                         tabCount: items.length,
@@ -1139,7 +1203,12 @@ class _RailButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         child: Column(
           children: [
-            _TabIcon(icon: icon, color: color, unconfirmed: unconfirmed),
+            _TabIcon(
+              icon: icon,
+              color: color,
+              selected: selected,
+              unconfirmed: unconfirmed,
+            ),
             const SizedBox(height: 3),
             Text(
               label,

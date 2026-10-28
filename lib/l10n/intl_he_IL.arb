@@ -198,6 +198,7 @@
   "guide_camera_title": "תן שם מתמונה",
   "guide_camera_body": "כל צמח, בר או בעציץ. העמוד נפתח אם הוא בספר.",
   "guide_meter_unlimited": "ללא הגבלה",
+  "guide_meter_field_guide": "מדריך שדה - ללא הגבלה",
   "guide_meter_left": "{count, plural, one{נותר זיהוי אחד} two{נותרו שני זיהויים} many{נותרו {count} זיהויים} other{נותרו {count} זיהויים}}",
   "guide_meter_sign_in": "היכנס כדי לתת שם לתמונה",
   "guide_key_step": "זהה במפתח · 1 מתוך 3",

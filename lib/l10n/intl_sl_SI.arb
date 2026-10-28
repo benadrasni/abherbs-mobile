@@ -198,6 +198,7 @@
   "guide_camera_title": "Določite s fotografije",
   "guide_camera_body": "Katera koli rastlina, divja ali v loncu. Stran se odpre, če je v atlasu.",
   "guide_meter_unlimited": "Neomejeno",
+  "guide_meter_field_guide": "Terenski vodnik - neomejeno",
   "guide_meter_left": "{count, plural, =1{še 1 določitev} one{še {count} določitev} two{še {count} določitvi} few{še {count} določitve} other{še {count} določitev}}",
   "guide_meter_sign_in": "Prijavite se za določitev fotografije",
   "guide_key_step": "Določite s ključem · 1 od 3",

@@ -198,6 +198,7 @@
   "guide_camera_title": "Määra foto järgi",
   "guide_camera_body": "Iga taim, metsik või potis. Lehekülg avaneb, kui see on atlases.",
   "guide_meter_unlimited": "Piiramata",
+  "guide_meter_field_guide": "Väliraamat - piiramata",
   "guide_meter_left": "{count, plural, =1{1 määrang järel} one{{count} määrang järel} other{{count} määrangut järel}}",
   "guide_meter_sign_in": "Logi sisse, et määrata foto järgi",
   "guide_key_step": "Määra määrajaga · 1/3",

@@ -198,6 +198,7 @@
   "guide_camera_title": "Bestem den ud fra et foto",
   "guide_camera_body": "Enhver plante, vild eller i potte. Siden åbnes, hvis den er i atlasset.",
   "guide_meter_unlimited": "Ubegrænset",
+  "guide_meter_field_guide": "Feltguide - ubegrænset",
   "guide_meter_left": "{count, plural, =1{1 bestemmelse tilbage} other{{count} bestemmelser tilbage}}",
   "guide_meter_sign_in": "Log ind for at bestemme et foto",
   "guide_key_step": "Brug nøglen · 1 af 3",

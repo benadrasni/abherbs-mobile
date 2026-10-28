@@ -198,6 +198,7 @@
   "guide_camera_title": "Určení z fotografie",
   "guide_camera_body": "Jakákoli rostlina, planá i v květináči. Stránky se otevřou, když je v atlase.",
   "guide_meter_unlimited": "Neomezeně",
+  "guide_meter_field_guide": "Terénní průvodce - neomezeně",
   "guide_meter_left": "{count, plural, =1{1 určení zbývá} one{{count} určení zbývá} few{{count} určení zbývají} other{{count} určení zbývá}}",
   "guide_meter_sign_in": "Přihlas se na určení z fotografie",
   "guide_key_step": "Urči klíčem · 1 z 3",

@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:abherbs_flutter/generated/l10n.dart';
 import 'package:abherbs_flutter/person/guide_person.dart';
 import 'package:abherbs_flutter/shell/guide_theme.dart';
@@ -428,6 +430,41 @@ void main() {
     expect(guideAppearanceFromStore('dark'), GuideAppearance.dark);
     expect(guideAppearanceFromStore(''), GuideAppearance.system);
     expect(guideAppearanceStoreValue(GuideAppearance.system), isNull);
+  });
+
+  testWidgets('Account leaves Find, Book, and Seen unselected', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(_app(_page(view: _guest())));
+
+    for (final label in ['Find', 'Book', 'Seen']) {
+      final text = tester.widget<Text>(find.text(label));
+      expect(text.style?.fontWeight, FontWeight.w400, reason: label);
+      expect(text.style?.color, isNot(GuideColors.light.moss), reason: label);
+    }
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Find, Tab 1 of 3'))
+          .flagsCollection
+          .isSelected,
+      Tristate.isFalse,
+    );
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Book, Tab 2 of 3'))
+          .flagsCollection
+          .isSelected,
+      Tristate.isFalse,
+    );
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Seen, Tab 3 of 3'))
+          .flagsCollection
+          .isSelected,
+      Tristate.isFalse,
+    );
+    handle.dispose();
   });
 
   testWidgets('a signed-out person can sign in', (tester) async {

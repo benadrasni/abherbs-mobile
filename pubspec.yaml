@@ -1,7 +1,7 @@
 name: abherbs_flutter
 description: Flutter version of abherbs
 
-version: 9.1.1+911
+version: 9.1.2+912
 
 environment:
   sdk: ">=3.6.0 <4.0.0"

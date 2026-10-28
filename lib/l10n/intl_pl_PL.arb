@@ -198,6 +198,7 @@
   "guide_camera_title": "Oznaczenie ze zdjęcia",
   "guide_camera_body": "Dowolna roślina, dzika albo w doniczce. Strony się otwierają, gdy jest w atlasie.",
   "guide_meter_unlimited": "Bez limitu",
+  "guide_meter_field_guide": "Przewodnik terenowy - bez limitu",
   "guide_meter_left": "{count, plural, =1{1 oznaczenie zostało} one{{count} oznaczenie zostało} few{{count} oznaczenia zostały} many{{count} oznaczeń zostało} other{{count} oznaczeń zostało}}",
   "guide_meter_sign_in": "Zaloguj się, aby oznaczyć zdjęcie",
   "guide_key_step": "Określ kluczem · 1 z 3",

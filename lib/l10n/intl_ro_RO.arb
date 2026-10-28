@@ -198,6 +198,7 @@
   "guide_camera_title": "Identifică dintr-o fotografie",
   "guide_camera_body": "Orice plantă, sălbatică sau în ghiveci. Pagina se deschide dacă e în atlas.",
   "guide_meter_unlimited": "Fără limită",
+  "guide_meter_field_guide": "Ghid de teren - fără limită",
   "guide_meter_left": "{count, plural, =1{1 identificare rămasă} few{{count} identificări rămase} other{{count} de identificări rămase}}",
   "guide_meter_sign_in": "Conectează-te ca să identifici o fotografie",
   "guide_key_step": "Folosește cheia · 1 din 3",

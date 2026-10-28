@@ -198,6 +198,7 @@
   "guide_camera_title": "Určenie z fotografie",
   "guide_camera_body": "Akákoľvek rastlina, divá aj v kvetináči. Stránky sa otvoria, keď je v atlase.",
   "guide_meter_unlimited": "Neobmedzene",
+  "guide_meter_field_guide": "Terénny sprievodca - neobmedzene",
   "guide_meter_left": "{count, plural, =1{1 určenie zostáva} one{{count} určenie zostáva} few{{count} určenia zostávajú} other{{count} určení zostáva}}",
   "guide_meter_sign_in": "Prihlás sa na určenie z fotografie",
   "guide_key_step": "Urč kľúčom · 1 z 3",

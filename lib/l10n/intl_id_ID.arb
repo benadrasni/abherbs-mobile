@@ -198,6 +198,7 @@
   "guide_camera_title": "Beri nama lewat foto",
   "guide_camera_body": "Tumbuhan apa saja, liar atau dalam pot. Halamannya terbuka bila ada di buku.",
   "guide_meter_unlimited": "Tak terbatas",
+  "guide_meter_field_guide": "Panduan lapangan - tak terbatas",
   "guide_meter_left": "{count, plural, =1{1 identifikasi tersisa} one{1 identifikasi tersisa} other{{count} identifikasi tersisa}}",
   "guide_meter_sign_in": "Masuk untuk menamai foto",
   "guide_key_step": "Kenali dengan kunci · 1 dari 3",

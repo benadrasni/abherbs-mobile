@@ -198,6 +198,7 @@
   "guide_camera_title": "Határozza meg fotóról",
   "guide_camera_body": "Bármely növény, vadon vagy cserépben. A lap akkor nyílik meg, ha benne van az atlaszban.",
   "guide_meter_unlimited": "Korlátlan",
+  "guide_meter_field_guide": "Terepi határozó - korlátlan",
   "guide_meter_left": "{count, plural, =1{1 határozás maradt} one{{count} határozás maradt} other{{count} határozás maradt}}",
   "guide_meter_sign_in": "Jelentkezzen be, hogy fotóról határozzon",
   "guide_key_step": "Határozza meg kulccsal · 1/3",
