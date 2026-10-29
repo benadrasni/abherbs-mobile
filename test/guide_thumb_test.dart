@@ -27,7 +27,7 @@ void main() {
     addTearDown(() async {
       if (dir.existsSync()) await dir.delete(recursive: true);
     });
-    debugResolveThumb = (url, cover) async => photo;
+    debugResolveThumb = (url, cover) async => (file: photo, own: true);
     var builds = 0;
 
     await tester.pumpWidget(
@@ -90,7 +90,7 @@ void main() {
     addTearDown(() async {
       if (dir.existsSync()) await dir.delete(recursive: true);
     });
-    debugResolveThumb = (url, cover) async => photo;
+    debugResolveThumb = (url, cover) async => (file: photo, own: true);
 
     Widget page(String? cover) {
       return MaterialApp(
@@ -135,10 +135,10 @@ void main() {
       if (dir.existsSync()) await dir.delete(recursive: true);
     });
 
-    final pending = Completer<File?>();
+    final pending = Completer<({File? file, bool own})>();
     debugResolveThumb = (url, cover) {
       if (url.endsWith('second.webp')) return pending.future;
-      return Future<File?>.value(first);
+      return Future.value((file: first, own: true));
     };
 
     Widget page(String url) {
@@ -169,7 +169,7 @@ void main() {
     expect(find.byKey(placeholder), findsOneWidget);
     expect(find.byType(Image), findsNothing);
 
-    pending.complete(second);
+    pending.complete((file: second, own: true));
     await tester.pump();
     await tester.pump();
     expect(find.byKey(placeholder), findsNothing);
@@ -192,7 +192,7 @@ void main() {
       if (dir.existsSync()) await dir.delete(recursive: true);
     });
 
-    File? saved;
+    ({File? file, bool own}) saved = (file: null, own: false);
     var lookups = 0;
     debugResolveThumb = (url, cover) async {
       lookups++;
@@ -218,11 +218,63 @@ void main() {
     expect(lookups, 1);
     expect(_fileImage(tester), isNull);
 
-    saved = photo;
+    saved = (file: photo, own: true);
     await tester.pumpWidget(page());
     await tester.pump();
     expect(lookups, 2);
     expect(_fileImage(tester)?.file.path, photo.path);
+  });
+
+  testWidgets('a book cover stands in until the plant photo is saved',
+      (tester) async {
+    final dir = await tester.runAsync(
+      () => Directory.systemTemp.createTemp('guide-thumb'),
+    );
+    final cover = File('${dir!.path}/cover.png');
+    final plant = File('${dir.path}/plant.png');
+    await tester.runAsync(() async {
+      final png = img.encodePng(img.Image(width: 2, height: 2));
+      await cover.writeAsBytes(png);
+      await plant.writeAsBytes(png);
+    });
+    addTearDown(() async {
+      if (dir.existsSync()) await dir.delete(recursive: true);
+    });
+
+    ({File? file, bool own}) hit = (file: cover, own: false);
+    var lookups = 0;
+    debugResolveThumb = (url, cover) async {
+      lookups++;
+      return hit;
+    };
+
+    Widget page() {
+      return MaterialApp(
+        home: getImage(
+          'observations/photo.webp',
+          const ColoredBox(
+            key: placeholder,
+            color: Color(0xFFE7E0D4),
+          ),
+          cover: 'photos/cover.webp',
+          width: 118,
+          height: 118,
+        ),
+      );
+    }
+
+    await tester.pumpWidget(page());
+    await tester.pump();
+    expect(lookups, 1);
+    expect(_fileImage(tester)?.file.path, cover.path);
+    expect(find.byKey(placeholder), findsNothing);
+
+    hit = (file: plant, own: true);
+    await tester.pumpWidget(page());
+    await tester.pump();
+    expect(lookups, 2);
+    expect(_fileImage(tester)?.file.path, plant.path);
+    expect(find.byKey(placeholder), findsNothing);
   });
 }
 

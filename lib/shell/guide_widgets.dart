@@ -1045,49 +1045,45 @@ class _TabIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final glyph = Icon(icon, size: 24, color: color);
-    // 64, plus the 4-point inset on each side of a status column, is 72.
-    // A narrower column shrinks the stadium instead of overflowing.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final available = constraints.maxWidth;
-        final width = available.isFinite ? math.min(64.0, available) : 64.0;
-        return SizedBox(
-          width: width,
-          height: 32,
-          child: Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              if (selected)
-                DecoratedBox(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 64, maxHeight: 32),
+      child: SizedBox(
+        width: double.infinity,
+        height: 32,
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            if (selected)
+              Positioned.fill(
+                child: DecoratedBox(
                   key: guideTabIndicatorKey,
                   decoration: BoxDecoration(
                     color: _tabPill(GuideColors.of(context)),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: SizedBox(width: width, height: 32),
-                ),
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    glyph,
-                    if (unconfirmed > 0)
-                      PositionedDirectional(
-                        top: 1,
-                        end: -8,
-                        child: _UnconfirmedBadge(count: unconfirmed),
-                      ),
-                  ],
                 ),
               ),
-            ],
-          ),
-        );
-      },
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  glyph,
+                  if (unconfirmed > 0)
+                    PositionedDirectional(
+                      top: 1,
+                      end: -8,
+                      child: _UnconfirmedBadge(count: unconfirmed),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
