@@ -516,7 +516,6 @@ class _ResolvedThumbState extends State<_ResolvedThumb> {
     final token = ++_token;
     // A photo already on screen stays there. Blanking here is the flash:
     // the next finds read often carries the same file with a new cover.
-    if (!_ready) _file = null;
     unawaited(_load(url, cover, token));
   }
 
