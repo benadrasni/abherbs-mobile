@@ -597,6 +597,59 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('the selected pill stays visible in dark mode', (tester) async {
+    await tester.pumpWidget(_tabs(
+      index: 1,
+      theme: guideTheme(Brightness.dark),
+    ));
+
+    final paint = tester.widget<DecoratedBox>(find.byKey(guideTabIndicatorKey));
+    final color = (paint.decoration as BoxDecoration).color;
+    expect(color, GuideColors.dark.photoWell);
+    expect(color, isNot(GuideColors.dark.cream));
+    expect(color, isNot(GuideColors.dark.paper2));
+  });
+
+  testWidgets('the selected pill fits a side column narrower than 72',
+      (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(left: 60);
+    tester.view.viewPadding = const FakeViewPadding(left: 60);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: const [
+        S.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: S.delegate.supportedLocales,
+      home: Builder(
+        builder: (context) => guideChromeFrame(
+          context,
+          index: 0,
+          onSelect: (_) {},
+          child: const SizedBox.expand(),
+        ),
+      ),
+    ));
+
+    expect(tester.takeException(), isNull);
+    final column = tester.getRect(find.byKey(const Key('guide-side-tabs')));
+    final pill = tester.getRect(find.byKey(guideTabIndicatorKey));
+    expect(column.width, 60);
+    expect(pill.width, closeTo(52, 0.5));
+    expect(pill.left, greaterThanOrEqualTo(column.left));
+    expect(pill.right, lessThanOrEqualTo(column.right));
+    expect(pill.height, 32);
+  });
+
   testWidgets('shows the unconfirmed count on the Seen icon', (tester) async {
     GuideTabs.unconfirmed.value = 3;
     await tester.pumpWidget(_tabs());
@@ -851,8 +904,9 @@ void main() {
   });
 }
 
-Widget _tabs({int index = 0, bool personOn = false}) {
+Widget _tabs({int index = 0, bool personOn = false, ThemeData? theme}) {
   return MaterialApp(
+    theme: theme,
     locale: const Locale('en'),
     localizationsDelegates: const [
       S.delegate,

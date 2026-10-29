@@ -434,19 +434,27 @@ Future<File?> _localImage(String url) async {
 }
 
 /// Replaces the disk lookup in tests. Production leaves this null.
+///
+/// A false own flag is a book cover or a miss, so the next build looks again.
 @visibleForTesting
-Future<File?> Function(String url, String? cover)? debugResolveThumb;
+Future<({File? file, bool own})> Function(String url, String? cover)?
+    debugResolveThumb;
 
 /// The file for a thumbnail. A photo already on the phone wins. When that
 /// file is missing, [cover] is the book photo from an offline pack.
-Future<File?> _thumbFile(String url, String? cover) async {
+///
+/// The hit is not this photo when it is that cover or a miss, so the next
+/// build looks again. A photo saved after the first miss then replaces
+/// the stand-in.
+Future<({File? file, bool own})> _thumbHit(String url, String? cover) async {
   final own = await Offline.getLocalFile(url);
-  if (own != null) return own;
+  if (own != null) return (file: own, own: true);
   if (cover != null && cover.isNotEmpty && cover != url) {
     final book = await Offline.getLocalFile(cover);
-    if (book != null) return book;
+    if (book != null) return (file: book, own: false);
   }
-  return _localImage(url);
+  final fetched = await _localImage(url);
+  return (file: fetched, own: fetched != null);
 }
 
 Widget getImage(String url, Widget placeholder,
@@ -455,6 +463,7 @@ Widget getImage(String url, Widget placeholder,
     double height = 50.0,
     BoxFit fit = BoxFit.contain}) {
   return _ResolvedThumb(
+    key: ValueKey<String>(url),
     url: url,
     cover: cover,
     placeholder: placeholder,
@@ -479,6 +488,7 @@ class _ResolvedThumb extends StatefulWidget {
   final BoxFit fit;
 
   const _ResolvedThumb({
+    super.key,
     required this.url,
     required this.cover,
     required this.placeholder,
@@ -491,10 +501,41 @@ class _ResolvedThumb extends StatefulWidget {
   State<_ResolvedThumb> createState() => _ResolvedThumbState();
 }
 
+/// One thumbnail lookup: still loading, this plant's file, or a stand-in.
+sealed class _ThumbResult {
+  const _ThumbResult();
+
+  bool get own => false;
+
+  File? get file => null;
+}
+
+final class _ThumbLoading extends _ThumbResult {
+  const _ThumbLoading();
+}
+
+final class _ThumbOwn extends _ThumbResult {
+  @override
+  final File file;
+
+  const _ThumbOwn(this.file);
+
+  @override
+  bool get own => true;
+}
+
+final class _ThumbStandIn extends _ThumbResult {
+  @override
+  final File? file;
+
+  const _ThumbStandIn(this.file);
+}
+
 class _ResolvedThumbState extends State<_ResolvedThumb> {
-  File? _file;
-  var _ready = false;
+  _ThumbResult _result = const _ThumbLoading();
   var _token = 0;
+
+  bool get _own => _result.own;
 
   @override
   void initState() {
@@ -505,9 +546,7 @@ class _ResolvedThumbState extends State<_ResolvedThumb> {
   @override
   void didUpdateWidget(covariant _ResolvedThumb oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url || oldWidget.cover != widget.cover) {
-      _resolve();
-    }
+    if (oldWidget.cover != widget.cover || !_own) _resolve();
   }
 
   void _resolve() {
@@ -520,24 +559,23 @@ class _ResolvedThumbState extends State<_ResolvedThumb> {
   }
 
   Future<void> _load(String url, String? cover, int token) async {
-    File? file;
+    ({File? file, bool own}) hit = (file: null, own: false);
     try {
-      final resolve = debugResolveThumb ?? _thumbFile;
-      file = await resolve(url, cover);
+      hit = await (debugResolveThumb ?? _thumbHit)(url, cover);
     } catch (error) {
       debugPrint('thumb $url: $error');
     }
     if (!mounted || token != _token) return;
+    final file = hit.file;
     setState(() {
-      _file = file;
-      _ready = true;
+      _result = hit.own && file != null ? _ThumbOwn(file) : _ThumbStandIn(file);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_ready) return widget.placeholder;
-    final file = _file;
+    if (_result is _ThumbLoading) return widget.placeholder;
+    final file = _result.file;
     if (file != null) {
       return Image.file(
         file,
