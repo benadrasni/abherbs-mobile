@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:abherbs_flutter/key/filter_utils.dart';
 import 'package:abherbs_flutter/generated/l10n.dart';
-import 'package:abherbs_flutter/data/guide_data.dart';
 import 'package:abherbs_flutter/offline/guide_offline.dart';
 import 'package:abherbs_flutter/shell/guide_theme.dart';
 import 'package:abherbs_flutter/shell/guide_widgets.dart';

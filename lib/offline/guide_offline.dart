@@ -4,7 +4,6 @@ import 'package:abherbs_flutter/offline/offline.dart';
 import 'package:abherbs_flutter/data/prefs.dart';
 import 'package:abherbs_flutter/data/utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
 /// Decimal megabytes of pictures per species: photos, the unsuffixed plate
