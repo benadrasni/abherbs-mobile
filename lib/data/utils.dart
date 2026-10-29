@@ -439,14 +439,19 @@ Future<File?> Function(String url, String? cover)? debugResolveThumb;
 
 /// The file for a thumbnail. A photo already on the phone wins. When that
 /// file is missing, [cover] is the book photo from an offline pack.
-Future<File?> _thumbFile(String url, String? cover) async {
+///
+/// The hit is not this photo when it is that cover or a miss, so the next
+/// build looks again. A photo saved after the first miss then replaces
+/// the stand-in.
+Future<({File? file, bool own})> _thumbHit(String url, String? cover) async {
   final own = await Offline.getLocalFile(url);
-  if (own != null) return own;
+  if (own != null) return (file: own, own: true);
   if (cover != null && cover.isNotEmpty && cover != url) {
     final book = await Offline.getLocalFile(cover);
-    if (book != null) return book;
+    if (book != null) return (file: book, own: false);
   }
-  return _localImage(url);
+  final fetched = await _localImage(url);
+  return (file: fetched, own: fetched != null);
 }
 
 Widget getImage(String url, Widget placeholder,
@@ -455,6 +460,7 @@ Widget getImage(String url, Widget placeholder,
     double height = 50.0,
     BoxFit fit = BoxFit.contain}) {
   return _ResolvedThumb(
+    key: ValueKey<String>(url),
     url: url,
     cover: cover,
     placeholder: placeholder,
@@ -479,6 +485,7 @@ class _ResolvedThumb extends StatefulWidget {
   final BoxFit fit;
 
   const _ResolvedThumb({
+    super.key,
     required this.url,
     required this.cover,
     required this.placeholder,
@@ -494,6 +501,9 @@ class _ResolvedThumb extends StatefulWidget {
 class _ResolvedThumbState extends State<_ResolvedThumb> {
   File? _file;
   var _ready = false;
+
+  /// True once the file is this photo, not a book cover and not a miss.
+  var _ownsFile = false;
   var _token = 0;
 
   @override
@@ -505,26 +515,45 @@ class _ResolvedThumbState extends State<_ResolvedThumb> {
   @override
   void didUpdateWidget(covariant _ResolvedThumb oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url || oldWidget.cover != widget.cover) {
+    if (oldWidget.url != widget.url) {
+      // Same element, another plant or the plate. Drop the previous photo
+      // before the new file loads. The key on [getImage] usually builds a
+      // fresh state instead, which starts empty for the same reason.
+      _file = null;
+      _ready = false;
+      _ownsFile = false;
       _resolve();
+      return;
     }
+    // A new cover must not blank a photo already up. A miss is not final:
+    // the file may be saved after that first lookup.
+    if (oldWidget.cover != widget.cover || !_ownsFile) _resolve();
   }
 
   void _resolve() {
     final url = widget.url;
     final cover = widget.cover;
     final token = ++_token;
-    // A photo already on screen stays there. Blanking here is the flash:
-    // the next finds read often carries the same file with a new cover.
+    // A photo of this plant stays up while a cover or a retry is resolved.
+    // Blanking that is the flash. A different plant was cleared above.
     if (!_ready) _file = null;
     unawaited(_load(url, cover, token));
   }
 
   Future<void> _load(String url, String? cover, int token) async {
     File? file;
+    var own = false;
     try {
-      final resolve = debugResolveThumb ?? _thumbFile;
-      file = await resolve(url, cover);
+      final resolve = debugResolveThumb;
+      if (resolve != null) {
+        file = await resolve(url, cover);
+        // Tests hand back the file they want shown. A null is a miss.
+        own = file != null;
+      } else {
+        final hit = await _thumbHit(url, cover);
+        file = hit.file;
+        own = hit.own;
+      }
     } catch (error) {
       debugPrint('thumb $url: $error');
     }
@@ -532,6 +561,7 @@ class _ResolvedThumbState extends State<_ResolvedThumb> {
     setState(() {
       _file = file;
       _ready = true;
+      _ownsFile = own;
     });
   }
 

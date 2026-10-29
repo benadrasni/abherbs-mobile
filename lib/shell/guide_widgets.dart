@@ -610,9 +610,16 @@ class GuideBottomBar extends StatelessWidget {
 
 const guideUnconfirmedBadgeKey = Key('guide-seen-unconfirmed');
 
-/// The open tab’s pill. Same mark as the mushroom bar: a 64×32 stadium
-/// in [GuideColors.paper2] behind the icon.
+/// The open tab’s pill. Same mark as the mushroom bar: a stadium behind
+/// the icon, 64 wide when the column allows it.
 const guideTabIndicatorKey = Key('guide-tab-indicator');
+
+/// Light cream and [GuideColors.paper2] are a visible step apart. Dark
+/// [GuideColors.paper2] sits on dark cream, so the stadium uses the photo
+/// well, which is that same step on the dark bar.
+Color _tabPill(GuideColors colors) {
+  return colors.isDark ? colors.photoWell : colors.paper2;
+}
 
 /// A tab icon is selected only on the page it opens. Account is not one
 /// of these pages.
@@ -1038,41 +1045,49 @@ class _TabIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final glyph = Icon(icon, size: 24, color: color);
-    return SizedBox(
-      width: 64,
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          if (selected)
-            DecoratedBox(
-              key: guideTabIndicatorKey,
-              decoration: BoxDecoration(
-                color: GuideColors.of(context).paper2,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const SizedBox(width: 64, height: 32),
-            ),
-          SizedBox(
-            width: 24,
-            height: 24,
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                glyph,
-                if (unconfirmed > 0)
-                  PositionedDirectional(
-                    top: 1,
-                    end: -8,
-                    child: _UnconfirmedBadge(count: unconfirmed),
+    // 64, plus the 4-point inset on each side of a status column, is 72.
+    // A narrower column shrinks the stadium instead of overflowing.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth;
+        final width = available.isFinite ? math.min(64.0, available) : 64.0;
+        return SizedBox(
+          width: width,
+          height: 32,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              if (selected)
+                DecoratedBox(
+                  key: guideTabIndicatorKey,
+                  decoration: BoxDecoration(
+                    color: _tabPill(GuideColors.of(context)),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-              ],
-            ),
+                  child: SizedBox(width: width, height: 32),
+                ),
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    glyph,
+                    if (unconfirmed > 0)
+                      PositionedDirectional(
+                        top: 1,
+                        end: -8,
+                        child: _UnconfirmedBadge(count: unconfirmed),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
