@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:abherbs_flutter/data/guide_sync.dart';
 import 'package:abherbs_flutter/data/plant.dart';
 import 'package:abherbs_flutter/offline/guide_media.dart';
 import 'package:abherbs_flutter/data/prefs.dart';
@@ -167,56 +168,65 @@ class Offline {
       var reference = FirebaseDatabase.instance.ref();
       switch (section) {
         case 1:
-          await reference.child(firebaseCountsV3).keepSynced(value);
-          await reference.child(firebaseFamiliesToUpdate).keepSynced(value);
-          await reference.child(firebasePlantsToUpdate).keepSynced(value);
+          await guideKeepSynced(reference.child(firebaseCountsV3), value);
+          await guideKeepSynced(
+            reference.child(firebaseFamiliesToUpdate),
+            value,
+          );
+          await guideKeepSynced(
+            reference.child(firebasePlantsToUpdate),
+            value,
+          );
           break;
         case 2:
-          await reference.child(firebaseListsV3).keepSynced(value);
-          await reference.child(firebasePlantHeadersV3).keepSynced(value);
+          await guideKeepSynced(reference.child(firebaseListsV3), value);
+          await guideKeepSynced(
+            reference.child(firebasePlantHeadersV3),
+            value,
+          );
           // Families, genera, and the flower lists. The pictures stay with
           // the plants; these indexes are what Book opens.
-          await reference.child(firebaseAPGIV).keepSynced(value);
-          await reference.child(firebaseListsCustom).keepSynced(value);
+          await guideKeepSynced(reference.child(firebaseAPGIV), value);
+          await guideKeepSynced(reference.child(firebaseListsCustom), value);
           break;
         case 3:
-          await reference.child(firebasePlants).keepSynced(value);
-          await reference.child(firebaseSynonyms).keepSynced(value);
+          await guideKeepSynced(reference.child(firebasePlants), value);
+          await guideKeepSynced(reference.child(firebaseSynonyms), value);
           var language =
               await Prefs.getStringListF(keyLanguageAndCountry, ['en', 'US']);
           final code = getLanguageCode(language[0]);
-          await reference
-              .child(firebaseTranslations)
-              .child(code)
-              .keepSynced(value);
-          await reference
-              .child(firebaseTranslationsTaxonomy)
-              .child(language[0])
-              .keepSynced(value);
+          await guideKeepSynced(
+            reference.child(firebaseTranslations).child(code),
+            value,
+          );
+          await guideKeepSynced(
+            reference.child(firebaseTranslationsTaxonomy).child(language[0]),
+            value,
+          );
           if (code != languageEnglish) {
-            await reference
-                .child(firebaseTranslations)
-                .child(languageEnglish)
-                .keepSynced(value);
+            await guideKeepSynced(
+              reference.child(firebaseTranslations).child(languageEnglish),
+              value,
+            );
           }
           break;
         case 4:
           // A pack removal releases the search index an earlier build pinned.
           if (!value) {
-            await reference.child(firebaseAPGIV).keepSynced(false);
-            await reference.child(firebaseListsCustom).keepSynced(false);
-            await reference
-                .child(firebaseSearch)
-                .child(languageLatin)
-                .keepSynced(false);
+            await guideKeepSynced(reference.child(firebaseAPGIV), false);
+            await guideKeepSynced(reference.child(firebaseListsCustom), false);
+            await guideKeepSynced(
+              reference.child(firebaseSearch).child(languageLatin),
+              false,
+            );
             var language = await Prefs.getStringListF(
               keyLanguageAndCountry,
               ['en', 'US'],
             );
-            await reference
-                .child(firebaseSearch)
-                .child(language[0])
-                .keepSynced(false);
+            await guideKeepSynced(
+              reference.child(firebaseSearch).child(language[0]),
+              false,
+            );
           }
           break;
       }
@@ -561,7 +571,9 @@ class Offline {
   }
 
   static Future<_PlantHeader?> _plantHeader(int position) async {
-    final v3 = await headersV3Reference.child(position.toString()).get();
+    final v3 = await guideServerGet(
+      headersV3Reference.child(position.toString()),
+    );
     final header = _readHeader(v3.value);
     if (header != null) return header;
     final event = await FirebaseDatabase.instance

@@ -12,6 +12,7 @@ import 'package:abherbs_flutter/seen/guide_stats.dart';
 import 'package:abherbs_flutter/species/guide_species.dart';
 import 'package:abherbs_flutter/offline/offline.dart';
 import 'package:abherbs_flutter/person/authentication.dart';
+import 'package:abherbs_flutter/data/guide_sync.dart';
 import 'package:abherbs_flutter/data/prefs.dart';
 import 'package:abherbs_flutter/data/utils.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -341,8 +342,8 @@ Future<List<GuideResultPlant>> loadGuideResults({
   final lang = getLanguageCode(languageCode);
   if (!await _guideOnPhoneOnly()) {
     try {
-      final snapshot =
-          await listsV3Reference.child(key).get().timeout(_guideIndexWait);
+      final snapshot = await guideServerGet(listsV3Reference.child(key))
+          .timeout(_guideIndexWait);
       final ids = guideResultIds(snapshot.value);
       // An answer that is present and empty is the real list.
       if (ids.isEmpty) return [];
@@ -445,8 +446,8 @@ Future<String?> loadGuideTaxonTitle(String latin, String languageCode) async {
 /// `plants_headers_v3` was cached on disk is not read back as missing.
 Future<GuideResultPlant?> _guideResultPlant(String id, String language) async {
   try {
-    final snapshot =
-        await headersV3Reference.child(id).get().timeout(_guideIndexWait);
+    final snapshot = await guideServerGet(headersV3Reference.child(id))
+        .timeout(_guideIndexWait);
     final value = snapshot.value;
     if (value is! Map) return null;
     final name = value[firebaseAttributeName];
@@ -465,7 +466,7 @@ Future<GuideResultPlant?> _guideResultPlant(String id, String language) async {
 Future<GuideResultPlant?> _guideHeaderPlant(String id, String language) async {
   try {
     final snapshot =
-        await listsReference.child(id).get().timeout(_guideIndexWait);
+        await guideServerGet(listsReference.child(id)).timeout(_guideIndexWait);
     final value = snapshot.value;
     if (value is! Map) return null;
     final name = value[firebaseAttributeName];
@@ -485,12 +486,12 @@ Future<String?> _resultLabel(String language, String name) async {
   final cached = translationCache[name];
   if (cached != null && cached.isNotEmpty) return cached;
   try {
-    final snapshot = await translationsReference
-        .child(language)
-        .child(name)
-        .child(firebaseAttributeLabel)
-        .get()
-        .timeout(_guideIndexWait);
+    final snapshot = await guideServerGet(
+      translationsReference
+          .child(language)
+          .child(name)
+          .child(firebaseAttributeLabel),
+    ).timeout(_guideIndexWait);
     final value = snapshot.value;
     if (value is String && value.isNotEmpty) {
       translationCache[name] = value;
@@ -504,11 +505,9 @@ Future<String?> _resultLabel(String language, String name) async {
 
 Future<String?> _resultPlate(String name) async {
   try {
-    final snapshot = await plantsReference
-        .child(name)
-        .child('illustrationUrl')
-        .get()
-        .timeout(_guideIndexWait);
+    final snapshot = await guideServerGet(
+      plantsReference.child(name).child('illustrationUrl'),
+    ).timeout(_guideIndexWait);
     final value = snapshot.value;
     if (value is String && value.isNotEmpty) return value;
   } catch (error) {
@@ -622,8 +621,8 @@ Future<Map<String, int>> loadGuideRegionCounts({
           petalId: petalId,
           regionId: id.isEmpty ? null : id,
         );
-        final snapshot =
-            await countsV3Reference.child(key).get().timeout(_guideIndexWait);
+        final snapshot = await guideServerGet(countsV3Reference.child(key))
+            .timeout(_guideIndexWait);
         return MapEntry(id, guideResultInt(snapshot.value));
       }));
       return Map.fromEntries(entries);
@@ -715,7 +714,7 @@ Future<dynamic> _guideChildValue(
   required bool phoneOnly,
 }) async {
   if (phoneOnly) {
-    final snapshot = await ref.get().timeout(_guideIndexWait);
+    final snapshot = await guideServerGet(ref).timeout(_guideIndexWait);
     return snapshot.value;
   }
   final event = await ref.once().timeout(_guideIndexWait);
@@ -857,9 +856,7 @@ Map<String, String> guideLabelsFromSnapshot(dynamic value) {
 }
 
 Future<Map<String, String>> _loadPhoneLabels(String language) async {
-  final snapshot = await translationsReference
-      .child(language)
-      .get()
+  final snapshot = await guideServerGet(translationsReference.child(language))
       .timeout(_guideIndexWait);
   return guideLabelsFromSnapshot(snapshot.value);
 }
@@ -902,8 +899,8 @@ Future<Map<String, int>?> _indexCounts(List<String> keys, String label) async {
 
 Future<Map<String, int>> _loadV3Counts(List<String> keys) async {
   final entries = await Future.wait(keys.map((key) async {
-    final snapshot =
-        await countsV3Reference.child(key).get().timeout(_guideIndexWait);
+    final snapshot = await guideServerGet(countsV3Reference.child(key))
+        .timeout(_guideIndexWait);
     return MapEntry(key, _asInt(snapshot.value));
   }));
   return Map.fromEntries(entries);
@@ -918,12 +915,13 @@ Future<List<GuideKeyPlant>> loadGuideKeyPlants() {
 
 Future<List<GuideKeyPlant>> _readKeyPlants() async {
   try {
-    final snapshot = await headersV3Reference.get().timeout(_guideIndexWait);
+    final snapshot =
+        await guideServerGet(headersV3Reference).timeout(_guideIndexWait);
     final plants = readGuideKeyPlants(snapshot.value);
     if (plants.isEmpty) {
       throw StateError('plants_headers_v3 is empty');
     }
-    unawaited(headersV3Reference.keepSynced(true));
+    unawaited(guideKeepSynced(headersV3Reference, true));
     return plants;
   } catch (error) {
     _keyPlants = null;
@@ -1176,11 +1174,12 @@ Future<List<GuideFind>> loadRecentFinds(String languageCode,
 Future<List<GuideSeenFind>> loadGuideSeen(String languageCode) async {
   final user = guideNotebookUser();
   if (user == null) return [];
-  final snapshot = await privateObservationsReference
-      .child(user.uid)
-      .child(firebaseObservationsByDate)
-      .child(firebaseAttributeList)
-      .get();
+  final snapshot = await guideServerGet(
+    privateObservationsReference
+        .child(user.uid)
+        .child(firebaseObservationsByDate)
+        .child(firebaseAttributeList),
+  );
   final value = snapshot.value;
   return decorateGuideSeen(
     guideSeenRows(value),
@@ -1392,12 +1391,14 @@ Future<_SeenRead> _catalogPhoto(String name, {required bool phoneOnly}) async {
 /// The stats node is the headline. When it is missing, the same outdoor rows
 /// supply the counts. Indoor rows are left out of the year chart either way.
 Future<GuideSightingsLoad> loadGuideSightings() async {
-  final stats =
-      publicObservationsReference.child(firebaseObservationsStats).get();
-  final list = publicObservationsReference
-      .child(firebaseObservationsByDate)
-      .child(firebaseAttributeList)
-      .get();
+  final stats = guideServerGet(
+    publicObservationsReference.child(firebaseObservationsStats),
+  );
+  final list = guideServerGet(
+    publicObservationsReference
+        .child(firebaseObservationsByDate)
+        .child(firebaseAttributeList),
+  );
   final statsSnap = await stats;
   final listSnap = await list;
   final stored = guideSightingHeadline(statsSnap.value);
@@ -1458,7 +1459,9 @@ Future<bool?> _plantInBook(String name, {bool phoneOnly = false}) async {
     );
   }
   try {
-    final snapshot = await plantsReference.child(name).child('id').get();
+    final snapshot = await guideServerGet(
+      plantsReference.child(name).child('id'),
+    );
     final value = snapshot.value;
     final inBook = value != null && value.toString().isNotEmpty;
     return guideRememberPlantInBook(_plantInBookCache, name, inBook);
@@ -2113,7 +2116,9 @@ Future<dynamic> _yearChild(
   required bool genera,
 }) async {
   if (phone) return _guideChildValue(ref, phoneOnly: true);
-  if (genera) return (await ref.get().timeout(_guideIndexWait)).value;
+  if (genera) {
+    return (await guideServerGet(ref).timeout(_guideIndexWait)).value;
+  }
   return (await ref.once().timeout(_guideIndexWait)).snapshot.value;
 }
 
@@ -2262,7 +2267,7 @@ Future<_LanguageLists> _languageLists(String languageCode) async {
   final code = getLanguageCode(languageCode);
   final ref = listsCustomReference.child('by language').child(code);
   final read = await guideReadOrPack(
-    () async => (await ref.get()).value,
+    () async => (await guideServerGet(ref)).value,
     () => _languageListPack(code, ref),
     label: 'guide language lists',
   );
@@ -2294,11 +2299,9 @@ Future<Map<String, String>> _headerPhotos(Set<String> ids) async {
   final photos = <String, String>{};
   await Future.wait(ids.map((id) async {
     try {
-      final snapshot = await listsReference
-          .child(id)
-          .child(firebaseAttributeUrl)
-          .get()
-          .timeout(_guideIndexWait);
+      final snapshot = await guideServerGet(
+        listsReference.child(id).child(firebaseAttributeUrl),
+      ).timeout(_guideIndexWait);
       final url = snapshot.value;
       if (url is String && url.isNotEmpty) {
         photos[id] = storagePhotos + url;
@@ -2489,7 +2492,8 @@ Future<GuideSpecies?> loadGuideSpecies(String name, String languageCode) async {
       : _guideSpeciesSeen(name);
   final DataSnapshot snapshot;
   try {
-    snapshot = await plantsReference.child(name).get().timeout(_guideIndexWait);
+    snapshot = await guideServerGet(plantsReference.child(name))
+        .timeout(_guideIndexWait);
   } catch (error) {
     debugPrint('guide species $name: $error');
     rethrow;
@@ -2558,22 +2562,18 @@ Future<void> saveGuideSeen(GuideSeenDraft draft) async {
 
 Future<PlantTranslation> _guideTranslation(String lang, String name) async {
   try {
-    final snapshot = await translationsReference
-        .child(lang)
-        .child(name)
-        .get()
-        .timeout(_guideIndexWait);
+    final snapshot = await guideServerGet(
+      translationsReference.child(lang).child(name),
+    ).timeout(_guideIndexWait);
     final raw = snapshot.value;
     final local = raw is Map
         ? PlantTranslation.fromJson(Map<dynamic, dynamic>.from(raw))
         : PlantTranslation();
     if (lang == languageEnglish || local.isTranslated()) return local;
     try {
-      final english = await translationsReference
-          .child(languageEnglish)
-          .child(name)
-          .get()
-          .timeout(_guideIndexWait);
+      final english = await guideServerGet(
+        translationsReference.child(languageEnglish).child(name),
+      ).timeout(_guideIndexWait);
       final fallback = english.value;
       if (fallback is Map) {
         local.fillMissingFrom(
@@ -2597,11 +2597,9 @@ Future<Map<String, String>> _guideVernaculars(
   final vernaculars = <String, String>{};
   await Future.wait(latins.map((latin) async {
     try {
-      final snapshot = await translationsTaxonomyReference
-          .child(lang)
-          .child(latin)
-          .get()
-          .timeout(_guideIndexWait);
+      final snapshot = await guideServerGet(
+        translationsTaxonomyReference.child(lang).child(latin),
+      ).timeout(_guideIndexWait);
       final name = guideTaxonVernacular(snapshot.value, latin);
       if (name != null) vernaculars[latin] = name;
     } catch (error) {
@@ -2613,12 +2611,12 @@ Future<Map<String, String>> _guideVernaculars(
 
 Future<List<GuideSighting>> _guideSightings(String name) async {
   try {
-    final snapshot = await publicObservationsReference
-        .child(firebaseObservationsByPlant)
-        .child(name)
-        .child(firebaseAttributeList)
-        .get()
-        .timeout(_guideIndexWait);
+    final snapshot = await guideServerGet(
+      publicObservationsReference
+          .child(firebaseObservationsByPlant)
+          .child(name)
+          .child(firebaseAttributeList),
+    ).timeout(_guideIndexWait);
     return guideSightings(snapshot.value);
   } catch (error) {
     debugPrint('guide species sightings $name: $error');
@@ -2630,13 +2628,13 @@ Future<GuideSpeciesSeen?> _guideSpeciesSeen(String name) async {
   final user = guideNotebookUser();
   if (user == null) return null;
   try {
-    final snapshot = await privateObservationsReference
-        .child(user.uid)
-        .child(firebaseObservationsByPlant)
-        .child(name)
-        .child(firebaseAttributeList)
-        .get()
-        .timeout(_guideIndexWait);
+    final snapshot = await guideServerGet(
+      privateObservationsReference
+          .child(user.uid)
+          .child(firebaseObservationsByPlant)
+          .child(name)
+          .child(firebaseAttributeList),
+    ).timeout(_guideIndexWait);
     final value = snapshot.value;
     final Iterable<dynamic> rows;
     if (value is List) {
@@ -2654,11 +2652,14 @@ Future<GuideSpeciesSeen?> _guideSpeciesSeen(String name) async {
 }
 
 void _keepSpeciesSynced(String name, String lang) {
-  unawaited(plantsReference.child(name).keepSynced(true));
-  unawaited(translationsReference.child(lang).child(name).keepSynced(true));
+  unawaited(guideKeepSynced(plantsReference.child(name), true));
+  unawaited(
+    guideKeepSynced(translationsReference.child(lang).child(name), true),
+  );
   if (lang != languageEnglish) {
-    unawaited(
-      translationsReference.child(languageEnglish).child(name).keepSynced(true),
-    );
+    unawaited(guideKeepSynced(
+      translationsReference.child(languageEnglish).child(name),
+      true,
+    ));
   }
 }

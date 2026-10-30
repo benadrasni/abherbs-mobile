@@ -5,6 +5,7 @@ import 'package:abherbs_flutter/shell/guide_theme.dart';
 import 'package:abherbs_flutter/purchase/purchases.dart';
 import 'package:abherbs_flutter/person/setting_utils.dart';
 import 'package:abherbs_flutter/person/authentication.dart';
+import 'package:abherbs_flutter/data/guide_sync.dart';
 import 'package:abherbs_flutter/data/prefs.dart';
 import 'package:abherbs_flutter/data/utils.dart';
 import 'package:flutter/widgets.dart';
@@ -223,11 +224,9 @@ Future<GuideMonthCount> loadGuideMonthCount() async {
   final user = Auth.appUser;
   if (user == null) return GuideMonthCount.empty;
   try {
-    final event = await rootReference
-        .child(firebasePhotoQuota)
-        .child(user.uid)
-        .get()
-        .timeout(_guidePersonWait);
+    final event = await guideServerGet(
+      rootReference.child(firebasePhotoQuota).child(user.uid),
+    ).timeout(_guidePersonWait);
     final raw = event.value;
     final arrived = guideMonthCountArrived(raw, DateTime.now());
     // Null did not arrive. The stored line already applied stays, including
@@ -285,11 +284,12 @@ Future<bool> guideGuestHasFreeName() async {
     return free;
   }
   try {
-    final event = await rootReference
-        .child(firebasePhotoQuota)
-        .child(guest.uid)
-        .child(firebaseAttributeAnonymousFreeUsed)
-        .get();
+    final event = await guideServerGet(
+      rootReference
+          .child(firebasePhotoQuota)
+          .child(guest.uid)
+          .child(firebaseAttributeAnonymousFreeUsed),
+    );
     final free = event.value != true;
     if (!free) unawaited(Prefs.setBool(keyGuestFreeUsed, true));
     _publishGuestFree(free);

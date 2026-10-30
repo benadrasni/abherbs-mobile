@@ -1,6 +1,7 @@
 import 'package:abherbs_flutter/offline/guide_media.dart';
 import 'package:abherbs_flutter/purchase/purchases.dart';
 import 'package:abherbs_flutter/offline/offline.dart';
+import 'package:abherbs_flutter/data/guide_sync.dart';
 import 'package:abherbs_flutter/data/prefs.dart';
 import 'package:abherbs_flutter/data/utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -590,7 +591,8 @@ class GuideOfflineView {
 const _guideOfflineWait = Duration(seconds: 4);
 
 Future<GuideOfflineView> loadGuideOffline() async {
-  final snapshot = await headersV3Reference.get().timeout(_guideOfflineWait);
+  final snapshot =
+      await guideServerGet(headersV3Reference).timeout(_guideOfflineWait);
   final catalog = readGuideOfflineCatalog(snapshot.value);
   final packs = await Prefs.getStringF(keyGuideOfflinePacks, '');
   final classic = await Prefs.getBoolF(keyOffline, false);
@@ -642,9 +644,7 @@ Future<GuideOfflineUpdate> loadGuideOfflineUpdate(
   dynamic raw;
   try {
     if (await _offlinePhoneOnly()) return GuideOfflineUpdate.empty;
-    raw = (await rootReference
-            .child(firebaseCatalogChanges)
-            .get()
+    raw = (await guideServerGet(rootReference.child(firebaseCatalogChanges))
             .timeout(_guideOfflineWait))
         .value;
   } catch (error) {
@@ -703,7 +703,7 @@ Future<GuideOfflineHold> loadGuideOfflineHold() async {
   if (!stored.isEmpty) {
     try {
       final snapshot =
-          await headersV3Reference.get().timeout(_guideOfflineWait);
+          await guideServerGet(headersV3Reference).timeout(_guideOfflineWait);
       final catalog = readGuideOfflineCatalog(snapshot.value);
       final update = await loadGuideOfflineUpdate(catalog, stored);
       updateBytes = update.bytes;

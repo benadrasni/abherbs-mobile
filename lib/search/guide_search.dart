@@ -1,4 +1,5 @@
 import 'package:abherbs_flutter/data/guide_results.dart';
+import 'package:abherbs_flutter/data/guide_sync.dart';
 import 'package:abherbs_flutter/data/utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:diacritic/diacritic.dart';
@@ -409,8 +410,8 @@ Future<GuideBookTaxa> _fetchGuideBookTaxa(String lang) async {
   final phoneOnly = await _bookOnPhoneOnly();
   if (phoneOnly) {
     final snaps = await Future.wait([
-      apgIVReference.get().timeout(_guideBookWait),
-      taxonomyRef.get().timeout(_guideBookWait),
+      guideServerGet(apgIVReference).timeout(_guideBookWait),
+      guideServerGet(taxonomyRef).timeout(_guideBookWait),
     ]);
     return _bookTaxaFrom(
       snaps[0].value,
@@ -420,8 +421,8 @@ Future<GuideBookTaxa> _fetchGuideBookTaxa(String lang) async {
   }
   try {
     await Future.wait([
-      apgIVReference.keepSynced(true),
-      taxonomyRef.keepSynced(true),
+      guideKeepSynced(apgIVReference, true),
+      guideKeepSynced(taxonomyRef, true),
     ]).timeout(_guideBookWait);
   } catch (error) {
     debugPrint('guide book sync: $error');
@@ -482,7 +483,7 @@ Future<void> ensureGuideApgLists() {
 Future<void> _loadApgLists() async {
   final phoneOnly = await _bookOnPhoneOnly();
   if (!phoneOnly) return;
-  final snapshot = await apgIVReference.get().timeout(_guideBookWait);
+  final snapshot = await guideServerGet(apgIVReference).timeout(_guideBookWait);
   _rememberApgLists(snapshot.value);
 }
 
@@ -580,10 +581,10 @@ Future<GuideSearchIndex> _fetchGuideSearchIndex(String lang) async {
   final latinRef = searchReference.child(languageLatin);
   final taxonomyRef = translationsTaxonomyReference.child(lang);
   await Future.wait([
-    vernacularRef.keepSynced(true),
-    latinRef.keepSynced(true),
-    apgIVReference.keepSynced(true),
-    taxonomyRef.keepSynced(true),
+    guideKeepSynced(vernacularRef, true),
+    guideKeepSynced(latinRef, true),
+    guideKeepSynced(apgIVReference, true),
+    guideKeepSynced(taxonomyRef, true),
   ]);
   final events = await Future.wait([
     vernacularRef.once(),

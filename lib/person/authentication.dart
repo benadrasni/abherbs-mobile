@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:abherbs_flutter/purchase/account_entitlements.dart';
 import 'package:abherbs_flutter/purchase/owned_purchases.dart';
+import 'package:abherbs_flutter/data/guide_sync.dart';
 import 'package:abherbs_flutter/data/prefs.dart';
 import 'package:abherbs_flutter/purchase/purchases.dart';
 import 'package:abherbs_flutter/purchase/store_proof.dart';
@@ -192,7 +193,7 @@ class Auth {
       return;
     }
     final uid = user.uid;
-    usersReference.child(uid).keepSynced(true);
+    unawaited(guideKeepSynced(usersReference.child(uid), true));
     final held = _accountHeld();
     var entitlementsRead = false;
     try {
@@ -204,11 +205,9 @@ class Auth {
         // once() can return the on-disk user from before this phone's plan
         // was written. A child that comes back replaces that copy. A null
         // child is not the server removing the plan, so the stored row stays.
-        final fresh = await usersReference
-            .child(uid)
-            .child('entitlements')
-            .get()
-            .timeout(_accountReadWait);
+        final fresh = await guideServerGet(
+          usersReference.child(uid).child('entitlements'),
+        ).timeout(_accountReadWait);
         if (gen != _accountGen) return;
         if (fresh.value != null) {
           entitlementsRead = true;
@@ -264,10 +263,10 @@ class Auth {
     }
 
     if (Purchases.isPhotoSearch()) {
-      rootReference
-          .child(firebaseSearchPhoto)
-          .child(firebaseAttributeEntity)
-          .keepSynced(true);
+      unawaited(guideKeepSynced(
+        rootReference.child(firebaseSearchPhoto).child(firebaseAttributeEntity),
+        true,
+      ));
     }
 
     if (gen == _accountGen) {
