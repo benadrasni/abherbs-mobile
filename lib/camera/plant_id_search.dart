@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show Locale;
@@ -6,7 +5,6 @@ import 'dart:ui' show Locale;
 import 'package:abherbs_flutter/person/guide_person.dart';
 import 'package:abherbs_flutter/person/authentication.dart';
 import 'package:abherbs_flutter/data/guide_photo_file.dart';
-import 'package:abherbs_flutter/data/guide_sync.dart';
 import 'package:abherbs_flutter/data/utils.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -213,10 +211,6 @@ Future<SearchResult> _readSuggestion(
     } else {
       result.labelLatin = result.path;
       final code = getLanguageCode(languageCode);
-      unawaited(guideKeepSynced(
-        translationsReference.child(code).child(result.labelLatin!),
-        true,
-      ));
       final labelEvent = await translationsReference
           .child(code)
           .child(result.labelLatin!)
@@ -231,12 +225,6 @@ Future<SearchResult> _readSuggestion(
       result.labelInLanguage = translationCache[result.labelLatin];
       return result;
     }
-    unawaited(guideKeepSynced(
-      translationsTaxonomyReference
-          .child(languageCode)
-          .child(result.labelLatin!),
-      true,
-    ));
     final taxonEvent = await translationsTaxonomyReference
         .child(languageCode)
         .child(result.labelLatin!)

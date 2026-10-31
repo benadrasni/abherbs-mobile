@@ -4,7 +4,6 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:abherbs_flutter/generated/l10n.dart';
 import 'package:abherbs_flutter/data/guide_data.dart';
-import 'package:abherbs_flutter/data/guide_sync.dart';
 import 'package:abherbs_flutter/l10n/app_locale.dart';
 import 'package:abherbs_flutter/person/setting_utils.dart';
 import 'package:abherbs_flutter/shell/guide_actions.dart';
@@ -362,9 +361,6 @@ class _AppState extends State<App> {
           case notificationAttributeActionList:
             String path = message.data[notificationAttributePath];
             final openNew = notificationPathOpensNewInBook(path);
-            if (!openNew) {
-              unawaited(guideKeepSynced(rootReference.child(path), true));
-            }
             return notificationPopup(
               _navigatorKey.currentContext!,
               notificationTitle(message),
@@ -528,7 +524,6 @@ class _AppState extends State<App> {
                   guideNewInBookRoute());
             }
             if (path.isNotEmpty) {
-              unawaited(guideKeepSynced(rootReference.child(path), true));
               return Future<MaterialPageRoute<dynamic>>.value(
                 guideNotificationListRoute(
                   path,

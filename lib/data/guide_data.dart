@@ -2500,7 +2500,6 @@ Future<GuideSpecies?> loadGuideSpecies(String name, String languageCode) async {
   }
   final raw = snapshot.value;
   if (!guidePlantRecord(raw)) {
-    if (!onPhone) _keepSpeciesSynced(name, lang);
     return null;
   }
   final plant = Map<dynamic, dynamic>.from(raw as Map);
@@ -2648,18 +2647,5 @@ Future<GuideSpeciesSeen?> _guideSpeciesSeen(String name) async {
   } catch (error) {
     debugPrint('guide species seen $name: $error');
     return null;
-  }
-}
-
-void _keepSpeciesSynced(String name, String lang) {
-  unawaited(guideKeepSynced(plantsReference.child(name), true));
-  unawaited(
-    guideKeepSynced(translationsReference.child(lang).child(name), true),
-  );
-  if (lang != languageEnglish) {
-    unawaited(guideKeepSynced(
-      translationsReference.child(languageEnglish).child(name),
-      true,
-    ));
   }
 }
