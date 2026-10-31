@@ -2478,12 +2478,31 @@ int _asInt(dynamic value) {
 }
 
 Future<GuideSpecies?> loadGuideSpecies(String name, String languageCode) async {
+  try {
+    return await _loadGuideSpecies(name, languageCode);
+  } on TimeoutException catch (error) {
+    // A notification resumes a dropped database connection. The first read
+    // spends this wait on the reconnect, and the plant is not on the phone.
+    debugPrint('guide species $name: retry after $error');
+    return _loadGuideSpecies(
+      name,
+      languageCode,
+      wait: const Duration(seconds: 12),
+    );
+  }
+}
+
+Future<GuideSpecies?> _loadGuideSpecies(
+  String name,
+  String languageCode, {
+  Duration wait = _guideIndexWait,
+}) async {
   final lang = getLanguageCode(languageCode);
   final onPhone = await _guideOnPhoneOnly();
   // Started with the plant read. A missing translation must not hold the page
   // open past its own timeout. A private find that is not on the phone must
   // not hold it either: the disk copy answers at once, and a server wait does not.
-  final translation = _guideTranslation(lang, name);
+  final translation = _guideTranslation(lang, name, wait: wait);
   final seen = onPhone
       ? _guideSpeciesSeen(name).timeout(
           const Duration(milliseconds: 800),
@@ -2492,8 +2511,7 @@ Future<GuideSpecies?> loadGuideSpecies(String name, String languageCode) async {
       : _guideSpeciesSeen(name);
   final DataSnapshot snapshot;
   try {
-    snapshot = await guideServerGet(plantsReference.child(name))
-        .timeout(_guideIndexWait);
+    snapshot = await guideServerGet(plantsReference.child(name)).timeout(wait);
   } catch (error) {
     debugPrint('guide species $name: $error');
     rethrow;
@@ -2559,11 +2577,15 @@ Future<void> saveGuideSeen(GuideSeenDraft draft) async {
   unawaited(syncGuidePrivatePhotos(onlyId: observation.id));
 }
 
-Future<PlantTranslation> _guideTranslation(String lang, String name) async {
+Future<PlantTranslation> _guideTranslation(
+  String lang,
+  String name, {
+  Duration wait = _guideIndexWait,
+}) async {
   try {
     final snapshot = await guideServerGet(
       translationsReference.child(lang).child(name),
-    ).timeout(_guideIndexWait);
+    ).timeout(wait);
     final raw = snapshot.value;
     final local = raw is Map
         ? PlantTranslation.fromJson(Map<dynamic, dynamic>.from(raw))
@@ -2572,7 +2594,7 @@ Future<PlantTranslation> _guideTranslation(String lang, String name) async {
     try {
       final english = await guideServerGet(
         translationsReference.child(languageEnglish).child(name),
-      ).timeout(_guideIndexWait);
+      ).timeout(wait);
       final fallback = english.value;
       if (fallback is Map) {
         local.fillMissingFrom(
