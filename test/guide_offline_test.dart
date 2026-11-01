@@ -326,6 +326,66 @@ void main() {
     expect(blocked.resumeMark, 0);
   });
 
+  test('on this phone leaves out plants the update still has to fetch', () {
+    final plants = catalog();
+    expect(guideOfflinePresent(plants, null, {0}), 3);
+    expect(guideOfflinePresent(plants, {'11'}, {0}), 1);
+    expect(guideOfflinePresent(plants, {'75'}, {0}), 2);
+    expect(guideOfflinePresent(plants, null, const {}), 4);
+
+    const stored = GuideOfflineStored.everything();
+    expect(guideOfflineRegionOnPhone(stored, '11', plants, {0}), isFalse);
+    expect(guideOfflineRegionOnPhone(stored, '75', plants, {0}), isTrue);
+    expect(
+      guideOfflineRegionOnPhone(stored, '11', plants, const {}),
+      isTrue,
+    );
+
+    const overlap = GuideOfflineCatalog([
+      {'11', '75'},
+      {'11', '75'},
+    ]);
+    const europeOnly = GuideOfflineStored(regions: {'11'});
+    expect(
+      guideOfflineRegionOnPhone(europeOnly, '75', overlap, const {}),
+      isTrue,
+    );
+    expect(
+      guideOfflineRegionOnPhone(europeOnly, '75', overlap, {0}),
+      isFalse,
+    );
+
+    const plate = GuideMediaFile(url: 'a/plate.webp', bytes: 100, hash: 'p');
+    final picture = GuideOfflineUpdate(
+      mark: 0,
+      resumeMark: 1,
+      plants: [
+        GuideMediaJob(
+          id: 0,
+          added: false,
+          stamp: const GuideMediaStamp(plate: plate),
+          download: const [plate],
+          remove: const [],
+        ),
+      ],
+    );
+    expect(guideOfflineMissingIds(picture), isEmpty);
+    final fresh = GuideOfflineUpdate(
+      mark: 0,
+      resumeMark: 1,
+      plants: [
+        GuideMediaJob(
+          id: 0,
+          added: true,
+          stamp: const GuideMediaStamp(plate: plate),
+          download: const [plate],
+          remove: const [],
+        ),
+      ],
+    );
+    expect(guideOfflineMissingIds(fresh), {0});
+  });
+
   test('update sizes keep a small plate visible', () {
     expect(GuideOfflineBytes.of(0).amount, '0');
     expect(GuideOfflineBytes.of(200000).amount, '0.2');
@@ -624,6 +684,110 @@ void main() {
     expect(request!.everything, isFalse);
     expect(request!.regions, {'11'});
     expect(request!.added, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a missing plant is not the whole book on this phone',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const plate =
+        GuideMediaFile(url: 'a/plate.webp', bytes: 2000000, hash: 'p');
+    await tester.pumpWidget(_app(GuideOfflinePage(
+      view: _view(
+        stored: const GuideOfflineStored.everything(),
+        update: GuideOfflineUpdate(
+          mark: 0,
+          resumeMark: 1,
+          plants: [
+            GuideMediaJob(
+              id: 0,
+              added: true,
+              stamp: const GuideMediaStamp(plate: plate),
+              download: const [plate],
+              remove: const [],
+            ),
+          ],
+        ),
+      ),
+    )));
+
+    expect(find.text('Everything · 3 plants · about 0 MB'), findsOneWidget);
+    expect(find.text('4 plants'), findsNothing);
+    expect(find.text('On this phone'), findsOneWidget);
+    await tester.tap(find.byKey(guideOfflineEverythingKey));
+    await tester.pump();
+    expect(find.text('Already on this phone'), findsNothing);
+    expect(find.text('1 plant · about 2 MB'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a picture change still counts the plant as on this phone',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const plate =
+        GuideMediaFile(url: 'a/plate.webp', bytes: 2000000, hash: 'p');
+    await tester.pumpWidget(_app(GuideOfflinePage(
+      view: _view(
+        stored: const GuideOfflineStored.everything(),
+        update: GuideOfflineUpdate(
+          mark: 0,
+          resumeMark: 1,
+          plants: [
+            GuideMediaJob(
+              id: 0,
+              added: false,
+              stamp: const GuideMediaStamp(plate: plate),
+              download: const [plate],
+              remove: const [],
+            ),
+          ],
+        ),
+      ),
+    )));
+
+    expect(find.text('Everything · 4 plants · about 0 MB'), findsOneWidget);
+    expect(find.text('On this phone'), findsNWidgets(2));
+    expect(find.text('1 plant · about 2 MB'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a region with a missing plant does not say it is on this phone',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const plate =
+        GuideMediaFile(url: 'a/plate.webp', bytes: 2000000, hash: 'p');
+    await tester.pumpWidget(_app(GuideOfflinePage(
+      view: _view(
+        stored: const GuideOfflineStored(regions: {'11'}),
+        update: GuideOfflineUpdate(
+          mark: 0,
+          resumeMark: 1,
+          plants: [
+            GuideMediaJob(
+              id: 0,
+              added: true,
+              stamp: const GuideMediaStamp(plate: plate),
+              download: const [plate],
+              remove: const [],
+            ),
+          ],
+        ),
+      ),
+    )));
+
+    expect(find.text('Middle Europe · 1 plant · about 0 MB'), findsOneWidget);
+    await tester.tap(find.text('Europe'));
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byKey(guideOfflineRegionKey('11')),
+        matching: find.text('On this phone'),
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 

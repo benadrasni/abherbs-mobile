@@ -338,12 +338,15 @@ class _GuideOfflinePageState extends State<GuideOfflinePage> {
     final colors = GuideColors.of(context);
     final storedCodes = view.stored.asCodes;
     final selected = _pick.asCodes;
-    final haveCount = guideOfflineMatch(view.catalog, storedCodes);
+    final coverage = guideOfflineMatch(view.catalog, storedCodes);
+    final missing = guideOfflineMissingIds(view.update);
+    final onPhone = guideOfflinePresent(view.catalog, storedCodes, missing);
+    final bookOnPhone = view.stored.everything && missing.isEmpty;
     final added = guideOfflineMatch(
           view.catalog,
           guideOfflineUnion(storedCodes, selected),
         ) -
-        haveCount;
+        coverage;
     final job = _job;
     final phone = view.phoneRegionId;
     final showPhone = phone != null && !view.stored.covers(phone);
@@ -387,13 +390,13 @@ class _GuideOfflinePageState extends State<GuideOfflinePage> {
                   plants: _count(context, job.plants),
                   onPause: _pause,
                 ),
-              if (haveCount > 0)
+              if (coverage > 0)
                 _KeptCard(
                   title: _label(context, guideOfflineLabel(storedCodes)),
                   detail: strings.guide_offline_kept(
                     _label(context, guideOfflineLabel(storedCodes)),
-                    _count(context, haveCount),
-                    _size(context, haveCount),
+                    _count(context, onPhone),
+                    _size(context, onPhone),
                   ),
                   onRemove: _remove,
                 ),
@@ -412,10 +415,16 @@ class _GuideOfflinePageState extends State<GuideOfflinePage> {
                 key: guideOfflineEverythingKey,
                 on: _pick.everything,
                 title: strings.guide_offline_everything,
-                meta: _count(context, view.catalog.total),
-                size: view.stored.everything
+                meta: _count(
+                  context,
+                  view.stored.everything ? onPhone : view.catalog.total,
+                ),
+                size: bookOnPhone
                     ? strings.guide_offline_on_phone
-                    : _size(context, view.catalog.total),
+                    : _size(
+                        context,
+                        view.stored.everything ? onPhone : view.catalog.total,
+                      ),
                 onPressed: () =>
                     setState(() => _pick = _pick.toggleEverything()),
               ),
@@ -474,6 +483,7 @@ class _GuideOfflinePageState extends State<GuideOfflinePage> {
                   catalog: view.catalog,
                   pick: _pick,
                   stored: view.stored,
+                  missing: missing,
                   phone: phone,
                   open: _open == group.id,
                   name: _groupName(strings, group.id),
@@ -494,7 +504,7 @@ class _GuideOfflinePageState extends State<GuideOfflinePage> {
           view: view,
           pick: _pick,
           added: added,
-          haveCount: haveCount,
+          haveCount: onPhone,
           busy: job != null,
           onPressed: () => _onGet(context, view, added),
         ),
@@ -1116,6 +1126,7 @@ class _Group extends StatelessWidget {
   final GuideOfflineCatalog catalog;
   final GuideOfflinePick pick;
   final GuideOfflineStored stored;
+  final Set<int> missing;
   final String? phone;
   final bool open;
   final String name;
@@ -1128,6 +1139,7 @@ class _Group extends StatelessWidget {
     required this.catalog,
     required this.pick,
     required this.stored,
+    required this.missing,
     required this.phone,
     required this.open,
     required this.name,
@@ -1214,7 +1226,7 @@ class _Group extends StatelessWidget {
               code: code,
               catalog: catalog,
               on: pick.regionOn(code),
-              stored: _storedRow(stored, code, catalog),
+              stored: guideOfflineRegionOnPhone(stored, code, catalog, missing),
               here: code == phone,
               onPressed: () => onRegion(code),
             ),
@@ -1225,20 +1237,36 @@ class _Group extends StatelessWidget {
   }
 }
 
-bool _storedRow(
-  GuideOfflineStored stored,
-  String code,
-  GuideOfflineCatalog catalog,
+class _SelectionGap {
+  final int plants;
+  final int bytes;
+
+  const _SelectionGap(this.plants, this.bytes);
+}
+
+/// New plants in [pick] that the update still has to fetch. Null when the
+/// choice does not include one, so a finished pack can still say it is stored.
+_SelectionGap? _missingInSelection(
+  GuideOfflineView view,
+  GuideOfflinePick pick,
 ) {
-  if (stored.isEmpty) return false;
-  if (stored.covers(code)) return true;
-  final have = guideOfflineMatch(catalog, stored.asCodes);
-  if (have <= 0) return false;
-  final withCode = guideOfflineMatch(
-    catalog,
-    guideOfflineUnion(stored.asCodes, {code}),
-  );
-  return withCode == have;
+  if (!pick.chosen) return null;
+  var plants = 0;
+  var bytes = 0;
+  for (final plant in view.update.plants) {
+    if (!plant.added || !_plantInPick(view, pick, plant.id)) continue;
+    plants++;
+    bytes += plant.bytes;
+  }
+  if (plants == 0) return null;
+  return _SelectionGap(plants, bytes);
+}
+
+bool _plantInPick(GuideOfflineView view, GuideOfflinePick pick, int id) {
+  if (pick.everything) return true;
+  final regions = view.catalog.regionsFor(id);
+  if (regions == null) return false;
+  return regions.any(pick.regions.contains);
 }
 
 class _RegionRow extends StatelessWidget {
@@ -1395,8 +1423,14 @@ class _Bar extends StatelessWidget {
         ? _label(context, guideOfflineLabel(pick.asCodes))
         : strings.guide_offline_choose;
     final String meta;
+    final gap = added <= 0 ? _missingInSelection(view, pick) : null;
     if (!pick.chosen) {
       meta = strings.guide_offline_choose_note;
+    } else if (gap != null) {
+      meta = strings.guide_offline_add(
+        _count(context, gap.plants),
+        _byteSize(context, gap.bytes),
+      );
     } else if (added <= 0) {
       meta = strings.guide_offline_already;
     } else if (!view.canDownload) {

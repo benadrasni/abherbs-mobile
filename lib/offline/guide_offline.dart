@@ -493,13 +493,25 @@ class GuideOfflineUpdate {
   final int resumeMark;
   final List<GuideMediaJob> plants;
 
+  /// False when the change list was not read. An empty plant list then means
+  /// "unknown", so a saved count must not be replaced with the full catalog.
+  final bool known;
+
   const GuideOfflineUpdate({
     required this.mark,
     required this.resumeMark,
     this.plants = const [],
+    this.known = true,
   });
 
   static const empty = GuideOfflineUpdate(mark: 0, resumeMark: 0);
+
+  /// Change list was not read. [plants] is empty because the gap is unknown.
+  static const unread = GuideOfflineUpdate(
+    mark: 0,
+    resumeMark: 0,
+    known: false,
+  );
 
   bool get hasWork => plants.isNotEmpty;
 
@@ -570,6 +582,66 @@ GuideOfflineUpdate guideOfflineUpdate({
   );
 }
 
+/// Catalog ids the update still has to fetch as new plants. A picture change
+/// is not missing: that plant is already on the phone.
+Set<int> guideOfflineMissingIds(GuideOfflineUpdate update) {
+  return {
+    for (final plant in update.plants)
+      if (plant.added) plant.id,
+  };
+}
+
+/// Plants in [codes] that are already on the phone. Null [codes] is the
+/// whole book. [missing] drops new plants the update has not fetched yet.
+int guideOfflinePresent(
+  GuideOfflineCatalog catalog,
+  Set<String>? codes,
+  Set<int> missing,
+) {
+  if (missing.isEmpty) return guideOfflineMatch(catalog, codes);
+  if (codes != null && codes.isEmpty) return 0;
+  var count = 0;
+  for (var index = 0; index < catalog.plants.length; index++) {
+    if (missing.contains(catalog.idAt(index))) continue;
+    if (!guideOfflineInPack(catalog.plants[index], codes)) continue;
+    count++;
+  }
+  return count;
+}
+
+bool _regionHasMissing(
+  GuideOfflineCatalog catalog,
+  String code,
+  Set<int> missing,
+) {
+  if (missing.isEmpty) return false;
+  for (var index = 0; index < catalog.plants.length; index++) {
+    if (!missing.contains(catalog.idAt(index))) continue;
+    if (guideOfflineInPack(catalog.plants[index], {code})) return true;
+  }
+  return false;
+}
+
+/// True when [code] is fully kept. A stored pack, or a region whose plants
+/// all occur in that pack, still fails while one of its plants is missing.
+bool guideOfflineRegionOnPhone(
+  GuideOfflineStored stored,
+  String code,
+  GuideOfflineCatalog catalog,
+  Set<int> missing,
+) {
+  if (stored.isEmpty) return false;
+  if (_regionHasMissing(catalog, code, missing)) return false;
+  if (stored.covers(code)) return true;
+  final have = guideOfflineMatch(catalog, stored.asCodes);
+  if (have <= 0) return false;
+  final withCode = guideOfflineMatch(
+    catalog,
+    guideOfflineUnion(stored.asCodes, {code}),
+  );
+  return withCode == have;
+}
+
 class GuideOfflineView {
   final GuideOfflineCatalog catalog;
   final bool canDownload;
@@ -603,14 +675,15 @@ Future<GuideOfflineView> loadGuideOffline() async {
       : guideRegion;
   final phone = guideOfflinePackCodes.contains(myRegion) ? myRegion : null;
   await Prefs.setString(keyGuideOfflineTotal, '${catalog.total}');
-  if (!stored.isEmpty) {
-    final plants = guideOfflineMatch(
+  final update = await loadGuideOfflineUpdate(catalog, stored);
+  if (!stored.isEmpty && update.known) {
+    final plants = guideOfflinePresent(
       catalog,
-      stored.everything ? null : stored.regions,
+      stored.asCodes,
+      guideOfflineMissingIds(update),
     );
     await Prefs.setString(keyGuideOfflineStoredPlants, '$plants');
   }
-  final update = await loadGuideOfflineUpdate(catalog, stored);
   return GuideOfflineView(
     catalog: catalog,
     canDownload: Purchases.hasFieldGuide() || Purchases.isOffline(),
@@ -643,13 +716,13 @@ Future<GuideOfflineUpdate> loadGuideOfflineUpdate(
   if (stored.isEmpty) return GuideOfflineUpdate.empty;
   dynamic raw;
   try {
-    if (await _offlinePhoneOnly()) return GuideOfflineUpdate.empty;
+    if (await _offlinePhoneOnly()) return GuideOfflineUpdate.unread;
     raw = (await guideServerGet(rootReference.child(firebaseCatalogChanges))
             .timeout(_guideOfflineWait))
         .value;
   } catch (error) {
     debugPrint('catalog changes: $error');
-    return GuideOfflineUpdate.empty;
+    return GuideOfflineUpdate.unread;
   }
   final log = readGuideChangeLog(raw);
   final mark =
@@ -694,7 +767,7 @@ Future<GuideOfflineHold> loadGuideOfflineHold() async {
   final storedPlants =
       int.tryParse(await Prefs.getStringF(keyGuideOfflineStoredPlants, '')) ??
           0;
-  final plants = stored.everything
+  var plants = stored.everything
       ? (storedPlants > 0 ? storedPlants : total)
       : storedPlants;
   final regions = stored.regions.toList()..sort();
@@ -708,6 +781,13 @@ Future<GuideOfflineHold> loadGuideOfflineHold() async {
       final update = await loadGuideOfflineUpdate(catalog, stored);
       updateBytes = update.bytes;
       updatePlants = update.plants.length;
+      if (update.known) {
+        plants = guideOfflinePresent(
+          catalog,
+          stored.asCodes,
+          guideOfflineMissingIds(update),
+        );
+      }
     } catch (error) {
       debugPrint('catalog changes: $error');
     }
