@@ -33,6 +33,7 @@ String guidePetalFilterLabel(
   required String color,
   String habitat = '',
 }) {
+  if (color.isEmpty) return habitat;
   if (habitat.isEmpty) return color;
   return strings.guide_petal_filter(color, habitat);
 }
@@ -148,26 +149,29 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
         padding: const EdgeInsets.only(bottom: 20),
         children: [
           GuideBackButton(label: guideCap(strings.filter_habitat)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                GuideFilterPill(
-                  label: colorName,
-                  leading: _ColorDot(colorId: widget.colorId),
-                  onPressed: _backToFind,
-                ),
-                if (habitatName.isNotEmpty)
-                  GuideFilterPill(
-                    label: habitatName,
-                    onPressed: () => Navigator.maybePop(context),
-                  ),
-              ],
+          if (colorName.isNotEmpty || habitatName.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  if (colorName.isNotEmpty)
+                    GuideFilterPill(
+                      label: colorName,
+                      leading: _ColorDot(colorId: widget.colorId),
+                      onPressed: _backToFind,
+                    ),
+                  if (habitatName.isNotEmpty)
+                    GuideFilterPill(
+                      label: habitatName,
+                      onPressed: () => Navigator.maybePop(context),
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
@@ -255,6 +259,10 @@ class _GuidePetalPageState extends State<GuidePetalPage> {
 
   String _skipLabel(S strings, String filter) {
     final total = _counts?.total;
+    if (filter.isEmpty) {
+      if (total == null) return strings.guide_petal_skip_all;
+      return strings.guide_petal_skip_all_count(total);
+    }
     if (total == null) return strings.guide_petal_skip(filter);
     return strings.guide_petal_skip_count(total, filter);
   }

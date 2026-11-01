@@ -418,6 +418,7 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
     final regionName = _prefs.regionId == null
         ? null
         : getFilterDistributionValue(context, _prefs.regionId);
+    final showColor = getFilterColorValue(context, widget.colorId).isNotEmpty;
     return GuideKeyScaffold(
       child: CustomScrollView(
         slivers: [
@@ -429,36 +430,43 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
                   _listHead(strings, arranged.plants.length, seenCount)
                 else ...[
                   GuideBackButton(label: strings.guide_back_petals),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        GuideFilterPill(
-                          label: guideCap(
-                            getFilterColorValue(context, widget.colorId),
-                          ),
-                          leading: _ColorDot(colorId: widget.colorId),
-                          onPressed: () => popGuideKeyToFind(context),
-                        ),
-                        if (widget.habitatId != null)
-                          GuideFilterPill(
-                            label: guideCap(
-                              guideHabitatName(strings, widget.habitatId!),
+                  if (showColor ||
+                      widget.habitatId != null ||
+                      widget.petalId.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          if (showColor)
+                            GuideFilterPill(
+                              label: guideCap(
+                                getFilterColorValue(context, widget.colorId),
+                              ),
+                              leading: _ColorDot(colorId: widget.colorId),
+                              onPressed: () => popGuideKeyToFind(context),
                             ),
-                            onPressed: () => popGuideKeyToHabitat(context),
-                          ),
-                        if (widget.petalId.isNotEmpty)
-                          GuideFilterPill(
-                            label:
-                                guidePetalTrailLabel(strings, widget.petalId),
-                            onPressed: () => Navigator.maybePop(context),
-                          ),
-                      ],
+                          if (widget.habitatId != null)
+                            GuideFilterPill(
+                              label: guideCap(
+                                guideHabitatName(strings, widget.habitatId!),
+                              ),
+                              onPressed: () => popGuideKeyToHabitat(context),
+                            ),
+                          if (widget.petalId.isNotEmpty)
+                            GuideFilterPill(
+                              label: guidePetalTrailLabel(
+                                strings,
+                                widget.petalId,
+                              ),
+                              onPressed: () => Navigator.maybePop(context),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
+                    const SizedBox(height: 14),
+                  ],
                   if (_prefsReady)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),

@@ -33,6 +33,9 @@ void main() {
       '1_1_3_',
     );
     expect(guideFilterKey(colorId: '1', petalId: '3'), '1__3_');
+    expect(guideFilterKey(), '___');
+    expect(guideFilterKey(habitatId: '4'), '_4__');
+    expect(guideFilterKey(habitatId: '1', petalId: '2'), '_1_2_');
   });
 
   test('habitat drawings follow the mockup paths', () {
@@ -166,6 +169,67 @@ void main() {
     await tester.tap(find.text('White'));
     await tester.pumpAndSettle();
     expect(find.text('Where is it growing?'), findsNothing);
+  });
+
+  testWidgets('a skipped color keeps the places and drops the color pill',
+      (tester) async {
+    String? picked = 'unset';
+    await _pump(
+      tester,
+      _app(
+        GuideHabitatPage(
+          colorId: '',
+          counts: _counts(),
+          onContinue: (id) => picked = id ?? 'skipped',
+        ),
+      ),
+    );
+
+    expect(find.text('KEY IT OUT · 2 OF 3'), findsOneWidget);
+    expect(find.text('Where is it growing?'), findsOneWidget);
+    expect(find.text('Color'), findsOneWidget);
+    expect(find.text('White'), findsNothing);
+    expect(find.text('Forest'), findsOneWidget);
+    expect(
+      find.text('In a garden, or not sure? Show all 100 plants'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Forest'));
+    await tester.pump();
+    expect(picked, '4');
+
+    await tester.drag(find.byType(ListView), const Offset(0, -160));
+    await tester.pump();
+    await tester.tap(
+      find.text('In a garden, or not sure? Show all 100 plants'),
+    );
+    await tester.pump();
+    expect(picked, 'skipped');
+  });
+
+  testWidgets('a skipped color waits to name the plant count', (tester) async {
+    final pending = Completer<GuideHabitatCounts>();
+    addTearDown(() {
+      if (!pending.isCompleted) pending.complete(_counts());
+    });
+    await _pump(
+      tester,
+      _app(
+        GuideHabitatPage(
+          colorId: '',
+          counts: null,
+          loadCounts: (_) => pending.future,
+          onContinue: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.text('White'), findsNothing);
+    expect(
+      find.text('In a garden, or not sure? Show all plants'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('pins the banner above the Find tabs', (tester) async {

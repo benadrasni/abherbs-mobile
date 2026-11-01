@@ -199,19 +199,39 @@ void popGuideKeyToHabitat(BuildContext context) {
 const guideHabitatIds = ['4', '1', '7', '8', '3', '9', '5', '10'];
 const guidePetalIds = ['1', '2', '3', '4'];
 
-Future<Map<String, int>> loadColorCounts() async {
+class GuideColorCounts {
+  final Map<String, int> byColor;
+
+  /// Plants in the book, each once. The empty color key, not the sum of
+  /// the five swatches: a flower can carry more than one color.
+  final int total;
+
+  const GuideColorCounts({required this.byColor, required this.total});
+}
+
+Future<GuideColorCounts> loadColorCounts() async {
   const ids = ['1', '2', '3', '4', '5'];
-  final keys = [for (final id in ids) guideFilterKey(colorId: id)];
+  final totalKey = guideFilterKey();
+  final keys = [
+    totalKey,
+    for (final id in ids) guideFilterKey(colorId: id),
+  ];
   final counts = await _indexCounts(keys, 'guide color counts');
   if (counts != null) {
-    return {
-      for (final id in ids) id: counts[guideFilterKey(colorId: id)] ?? 0,
-    };
+    return GuideColorCounts(
+      byColor: {
+        for (final id in ids) id: counts[guideFilterKey(colorId: id)] ?? 0,
+      },
+      total: counts[totalKey] ?? 0,
+    );
   }
   final plants = await loadGuideKeyPlants();
-  return {
-    for (final id in ids) id: guideKeyCount(plants, colorId: id),
-  };
+  return GuideColorCounts(
+    byColor: {
+      for (final id in ids) id: guideKeyCount(plants, colorId: id),
+    },
+    total: guideKeyCount(plants),
+  );
 }
 
 String guideFilterKey({

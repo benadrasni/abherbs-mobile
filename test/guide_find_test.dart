@@ -372,6 +372,10 @@ void main() {
     expect(find.text('KEY IT OUT · 1 OF 3'), findsOneWidget);
     expect(find.text('ALWAYS FREE'), findsOneWidget);
     expect(find.text('What color is the flower?'), findsOneWidget);
+    expect(
+      find.text('Not one of these? Continue by where it grows'),
+      findsOneWidget,
+    );
     expect(find.text('White'), findsOneWidget);
     expect(find.text('Red, pink'), findsOneWidget);
     expect(find.text('Blue, purple'), findsOneWidget);
@@ -411,6 +415,30 @@ void main() {
     await tester.pump();
     expect(seen, 1);
     expect(book, 1);
+  });
+
+  testWidgets('a skipped color continues by where the plant grows',
+      (tester) async {
+    await _pump(tester, _page(catalogCount: 1421));
+
+    expect(
+      find.text('Not one of these? Continue with all 1421 plants'),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.text('Not one of these? Continue with all 1421 plants'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Where is it growing?').hitTestable(), findsOneWidget);
+    expect(find.text('Forest').hitTestable(), findsOneWidget);
+    expect(find.text('Color').hitTestable(), findsOneWidget);
+    expect(find.byType(GuideFilterPill).hitTestable(), findsNothing);
+    expect(
+      find.text('What color is the flower?').hitTestable(),
+      findsNothing,
+    );
   });
 
   testWidgets('Favorite flowers leads Find, and New in the book stays second',
@@ -975,6 +1003,7 @@ PurchaseDetails _noAds() {
 
 Widget _page({
   Map<String, int>? colorCounts = const {},
+  int? catalogCount,
   List<GuideFind>? finds = const [],
   List<GuideListCover>? lists = const [],
   bool listsFailed = false,
@@ -1008,6 +1037,7 @@ Widget _page({
     home: Scaffold(
       body: FindPage(
         colorCounts: colorCounts,
+        catalogCount: catalogCount,
         lists: lists,
         listsFailed: listsFailed,
         onRetryLists: onRetryLists,

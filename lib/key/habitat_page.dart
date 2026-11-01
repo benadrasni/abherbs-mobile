@@ -145,21 +145,23 @@ class _GuideHabitatPageState extends State<GuideHabitatPage> {
         padding: const EdgeInsets.only(bottom: 20),
         children: [
           GuideBackButton(label: guideCap(strings.filter_color)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                GuideFilterPill(
-                  label: guideCap(colorName),
-                  leading: _ColorDot(colorId: widget.colorId),
-                  onPressed: () => Navigator.maybePop(context),
-                ),
-              ],
+          if (colorName.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  GuideFilterPill(
+                    label: guideCap(colorName),
+                    leading: _ColorDot(colorId: widget.colorId),
+                    onPressed: () => Navigator.maybePop(context),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
@@ -192,20 +194,20 @@ class _GuideHabitatPageState extends State<GuideHabitatPage> {
                   child: (context) => SizedBox(
                     width: double.infinity,
                     child: TextButton(
-                    onPressed: _skip,
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.moss,
-                      textStyle: const TextStyle(
-                        fontFamily: GuideType.sans,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                      onPressed: _skip,
+                      style: TextButton.styleFrom(
+                        foregroundColor: colors.moss,
+                        textStyle: const TextStyle(
+                          fontFamily: GuideType.sans,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      child: Text(
+                        _skipLabel(strings, colorName),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    child: Text(
-                      _skipLabel(strings, colorName),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
                   ),
                 ),
               ],
@@ -241,6 +243,10 @@ class _GuideHabitatPageState extends State<GuideHabitatPage> {
 
   String _skipLabel(S strings, String colorName) {
     final total = _counts?.total;
+    if (colorName.isEmpty) {
+      if (total == null) return strings.guide_habitat_skip_any;
+      return strings.guide_habitat_skip_any_count(total);
+    }
     if (total == null) return strings.guide_habitat_skip(colorName);
     return strings.guide_habitat_skip_count(total, colorName);
   }

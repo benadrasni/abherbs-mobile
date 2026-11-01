@@ -130,18 +130,28 @@ class GuideSectionHeader extends StatelessWidget {
   final String? action;
   final VoidCallback? onAction;
 
+  /// Space above the title. Stacked Find sets this so the cream under the
+  /// color skip matches the cream under Seen lately. A wide window keeps
+  /// one inset so the two headers in that row still line up.
+  final double top;
+
+  /// The action stays as tall as its label. The 48dp target would lift the title.
+  final bool compactAction;
+
   const GuideSectionHeader({
     super.key,
     required this.title,
     this.action,
     this.onAction,
+    this.top = 24,
+    this.compactAction = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = GuideColors.of(context);
     return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(20, 24, 12, 10),
+      padding: EdgeInsetsDirectional.fromSTEB(20, top, 12, 10),
       child: Row(
         children: [
           Expanded(child: Text(title, style: GuideType.section(colors))),
@@ -150,6 +160,12 @@ class GuideSectionHeader extends StatelessWidget {
               onPressed: onAction,
               style: TextButton.styleFrom(
                 foregroundColor: colors.moss,
+                tapTargetSize:
+                    compactAction ? MaterialTapTargetSize.shrinkWrap : null,
+                minimumSize: compactAction ? Size.zero : null,
+                padding: compactAction
+                    ? const EdgeInsets.symmetric(horizontal: 8, vertical: 0)
+                    : null,
                 textStyle: const TextStyle(
                   fontFamily: GuideType.sans,
                   fontSize: 14,

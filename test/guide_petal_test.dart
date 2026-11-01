@@ -116,6 +116,26 @@ void main() {
     expect(picked, '3');
   });
 
+  testWidgets('a skipped color keeps only the place', (tester) async {
+    await _pump(tester, _page(colorId: ''));
+    expect(find.text('White'), findsNothing);
+    expect(find.text('Meadow'), findsOneWidget);
+    expect(
+      find.text('Not sure? Show all 239 meadow plants'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a skipped color and place name no filter', (tester) async {
+    await _pump(
+      tester,
+      _page(colorId: '', habitatId: null, counts: _skipped),
+    );
+    expect(find.text('White'), findsNothing);
+    expect(find.text('Meadow'), findsNothing);
+    expect(find.text('Not sure? Show all 416 plants'), findsOneWidget);
+  });
+
   testWidgets('a skipped place keeps only the color', (tester) async {
     await _pump(tester, _page(habitatId: null));
     expect(find.text('White'), findsOneWidget);
@@ -449,6 +469,7 @@ Widget _openPetals({Key? petalKey}) {
 }
 
 Widget _page({
+  String colorId = '1',
   String? habitatId = '1',
   GuidePetalCounts? counts,
   Future<GuidePetalCounts> Function(String colorId, String? habitatId)?
@@ -457,7 +478,7 @@ Widget _page({
 }) {
   return _app(
     GuidePetalPage(
-      colorId: '1',
+      colorId: colorId,
       habitatId: habitatId,
       counts: counts ??
           (loadCounts == null

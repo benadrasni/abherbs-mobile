@@ -10,6 +10,10 @@ import 'package:flutter/material.dart';
 
 class FindPage extends StatelessWidget {
   final Map<String, int>? colorCounts;
+
+  /// Plants in the book, counted once. Null until that count has loaded.
+  /// The swatch counts are not a substitute: one flower can have two colors.
+  final int? catalogCount;
   final List<GuideListCover>? lists;
 
   /// The list read threw. [lists] stays null; an empty list is a real answer.
@@ -27,6 +31,7 @@ class FindPage extends StatelessWidget {
   const FindPage({
     super.key,
     required this.colorCounts,
+    this.catalogCount,
     required this.lists,
     this.listsFailed = false,
     this.onRetryLists,
@@ -44,6 +49,10 @@ class FindPage extends StatelessWidget {
     final recent = (finds ?? const <GuideFind>[]).take(5).toList();
     final flowerLists = _findLists(lists, favorites);
     final strings = S.of(context);
+    // Stacked Find: the cream under the color skip, and the same cream
+    // between the Seen strip and Lists of flowers. A wide window puts the
+    // two headers on one row, so those keep the shared inset.
+    final stacked = !window.wide;
     final seen = recent.isEmpty
         ? null
         : Column(
@@ -53,6 +62,8 @@ class FindPage extends StatelessWidget {
                 title: strings.guide_seen_lately,
                 action: strings.guide_all_finds,
                 onAction: onOpenSeen,
+                top: stacked ? 27 : 24,
+                compactAction: stacked,
               ),
               _FindStrip(finds: recent, onOpenSeen: onOpenSeen),
             ],
@@ -64,6 +75,8 @@ class FindPage extends StatelessWidget {
           title: strings.custom_lists,
           action: strings.guide_all_lists,
           onAction: onOpenBook,
+          top: stacked ? 13 : 24,
+          compactAction: stacked,
         ),
         if (flowerLists == null && listsFailed)
           _ListRetry(onPressed: onRetryLists)
@@ -96,7 +109,10 @@ class FindPage extends StatelessWidget {
                 _CameraCard(allowance: allowance),
               ],
             ),
-            trailing: _KeyCard(colorCounts: colorCounts),
+            trailing: _KeyCard(
+              colorCounts: colorCounts,
+              catalogCount: catalogCount,
+            ),
           )
         else if (window.tablet)
           Row(
@@ -110,13 +126,18 @@ class FindPage extends StatelessWidget {
                   ],
                 ),
               ),
-              Expanded(child: _KeyCard(colorCounts: colorCounts)),
+              Expanded(
+                child: _KeyCard(
+                  colorCounts: colorCounts,
+                  catalogCount: catalogCount,
+                ),
+              ),
             ],
           )
         else ...[
           const _SearchButton(),
           _CameraCard(allowance: allowance),
-          _KeyCard(colorCounts: colorCounts),
+          _KeyCard(colorCounts: colorCounts, catalogCount: catalogCount),
         ],
         if (window.wide && seen != null)
           Row(
@@ -411,8 +432,9 @@ double _oneLineWidth(BuildContext context, String text, TextStyle style) {
 
 class _KeyCard extends StatelessWidget {
   final Map<String, int>? colorCounts;
+  final int? catalogCount;
 
-  const _KeyCard({required this.colorCounts});
+  const _KeyCard({required this.colorCounts, required this.catalogCount});
 
   @override
   Widget build(BuildContext context) {
@@ -452,6 +474,32 @@ class _KeyCard extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () => openGuideColor(context, ''),
+              style: TextButton.styleFrom(
+                foregroundColor: colors.moss,
+                // The default 48dp target left a band of cream above Seen lately.
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                minimumSize: Size.zero,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                textStyle: const TextStyle(
+                  fontFamily: GuideType.sans,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              child: Text(
+                catalogCount == null
+                    ? s.guide_color_skip
+                    : s.guide_color_skip_count(catalogCount!),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ),
         ],
       ),

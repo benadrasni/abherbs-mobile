@@ -563,6 +563,8 @@ void main() {
           listTitle: 'Daisy family',
           listBackLabel: 'Book',
           listLatin: 'Asteraceae',
+          // July: the daisy is in flower and the snowdrop is not.
+          month: 7,
           initialPlants: _sample,
           initialPrefs: const GuideResultPrefs(),
           initialSeen: const {'Bellis perennis'},
@@ -820,6 +822,27 @@ void main() {
     expect(find.text('open'), findsOneWidget);
   });
 
+  testWidgets('a skipped color leaves that pill off', (tester) async {
+    await _pump(tester, _app(_results(colorId: '')));
+
+    expect(find.text('Petals'), findsOneWidget);
+    expect(find.text('White'), findsNothing);
+    expect(find.text('Meadow'), findsOneWidget);
+    expect(find.text('More than 5 petals'), findsOneWidget);
+  });
+
+  testWidgets('a skipped color and place leave only the petal pill',
+      (tester) async {
+    await _pump(
+      tester,
+      _app(_results(colorId: '', habitatId: null)),
+    );
+
+    expect(find.text('White'), findsNothing);
+    expect(find.text('Meadow'), findsNothing);
+    expect(find.text('More than 5 petals'), findsOneWidget);
+  });
+
   testWidgets('a skipped petal count leaves that pill off', (tester) async {
     await _pump(tester, _app(_results(petalId: '')));
 
@@ -926,6 +949,8 @@ Widget _results({
   List<GuideResultPlant>? plants = _sample,
   Set<String> seen = const {},
   Map<String, int> counts = const {'': 4},
+  String colorId = '1',
+  String? habitatId = '1',
   String petalId = '3',
   bool showAd = false,
   WidgetBuilder? adBuilder,
@@ -936,8 +961,8 @@ Widget _results({
   Future<void> Function(BuildContext context)? onTryPhoto,
 }) {
   return GuideResultsPage(
-    colorId: '1',
-    habitatId: '1',
+    colorId: colorId,
+    habitatId: habitatId,
     petalId: petalId,
     month: 7,
     showAd: showAd,

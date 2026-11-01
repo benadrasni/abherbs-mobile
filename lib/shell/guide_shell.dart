@@ -51,6 +51,7 @@ class _GuideShellState extends State<GuideShell> with WidgetsBindingObserver {
   bool _decorateActive = false;
   bool _decorateQueued = false;
   Map<String, int>? _colorCounts;
+  int? _catalogCount;
   List<GuideListCover>? _lists;
 
   /// The list read threw. Distinct from an empty catalog, which is [_lists]
@@ -403,7 +404,10 @@ class _GuideShellState extends State<GuideShell> with WidgetsBindingObserver {
     try {
       final counts = await loadColorCounts();
       if (!mounted) return;
-      setState(() => _colorCounts = counts);
+      setState(() {
+        _colorCounts = counts.byColor;
+        _catalogCount = counts.total;
+      });
     } catch (error) {
       debugPrint('guide colors: $error');
     }
@@ -665,6 +669,7 @@ class _GuideShellState extends State<GuideShell> with WidgetsBindingObserver {
             children: [
               FindPage(
                 colorCounts: _colorCounts,
+                catalogCount: _catalogCount,
                 lists: _lists,
                 listsFailed: _listsFailed,
                 onRetryLists: _loadLists,
