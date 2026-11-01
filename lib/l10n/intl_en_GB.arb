@@ -3,6 +3,8 @@
   "filter_color": "colour",
   "guide_color_question": "What colour is the flower?",
   "guide_camera_key_note": "Colour, habitat, petals. Free, always.",
+  "guide_region_body": "Narrows {count} to those native or naturalised there.",
+  "guide_region_body_plain": "Narrows these plants to those native or naturalised there.",
   "guide_favorite_flowers": "Favourite flowers",
   "guide_favorite_add": "Mark as favourite",
   "guide_favorite_remove": "Remove from favourites",
