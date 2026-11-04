@@ -1006,7 +1006,8 @@ class _GuideCameraPageState extends State<GuideCameraPage>
         ));
       }
       if (!mounted) return;
-      setState(() => _naming = false);
+      // The still stays in front of the preview unless it is dropped here.
+      _clearShot();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(S.of(context).guide_camera_failed)),
       );

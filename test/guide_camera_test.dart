@@ -907,11 +907,16 @@ void main() {
 
   testWidgets('a failed name shows the error and leaves the viewfinder',
       (tester) async {
+    final root = Directory.systemTemp.createTempSync('guide-fail-shot');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final shot = File('${root.path}/shot.jpg')
+      ..writeAsBytesSync(base64Decode(_plainJpeg));
+
     await _show(
       tester,
       _page(
         allowance: GuideAllowance.credits(3),
-        pickPhoto: (_) async => '/tmp/shot.jpg',
+        pickPhoto: (_) async => shot.path,
         identify: (_) async => throw StateError('down'),
       ),
     );
@@ -923,6 +928,8 @@ void main() {
     expect(find.text('Couldn’t name this photo. Try again.'), findsOneWidget);
     expect(find.text('Naming…'), findsNothing);
     expect(find.text('Flower and a leaf, in focus'), findsOneWidget);
+    expect(find.byKey(const Key('guide-camera-preview')), findsOneWidget);
+    expect(shot.existsSync(), isFalse);
   });
 
   testWidgets('a discarded shot deletes the cache file that still has gps',
