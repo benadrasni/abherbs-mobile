@@ -102,9 +102,13 @@ String catalogLanguageCode(String tag) {
 /// Names a photo through the `identifyPlant` Cloud Function, which holds the
 /// Plant.id key and counts the allowance. No results with no refusal means
 /// Plant.id found no plant.
+///
+/// [maxWidth] is the screen width version 8 passed to the photo picker.
+/// The bytes are resized to that width before the call.
 Future<PhotoIdentification> identifyPlantPhoto({
   required File image,
   required String languageCode,
+  required double maxWidth,
   void Function()? onCreditsChanged,
 }) async {
   if (Auth.firebaseAuth.currentUser == null) await Auth.startGuest();
@@ -112,7 +116,10 @@ Future<PhotoIdentification> identifyPlantPhoto({
     return const PhotoIdentification([], refusal: PhotoRefusal.signIn);
   }
   try {
-    final bytes = await photoWithoutLocation(await image.readAsBytes());
+    final bytes = await jpegForPlantId(
+      await image.readAsBytes(),
+      maxWidth: maxWidth,
+    );
     if (bytes == null) {
       throw StateError('photo location could not be removed');
     }

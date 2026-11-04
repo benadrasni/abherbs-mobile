@@ -4,6 +4,76 @@ import 'dart:ui' as ui;
 
 import 'package:image/image.dart' as img;
 
+/// `identifyPlant` rejects a base64 image longer than this and never calls
+/// Plant.id. Version 8 kept the upload under it by resizing first.
+const plantIdMaxImageChars = 8 * 1024 * 1024;
+
+/// A JPEG Plant.id can accept. No wider than [maxWidth], and with no location.
+///
+/// Version 8 took and picked every photo with `ImagePicker.pickImage` and
+/// `maxWidth` set to the screen width, then sent those bytes. An iPhone
+/// shutter photo from the camera plugin is the sensor's full still, often
+/// too large for that call. A gallery JPEG whose place cannot be removed in
+/// place is decoded to pixels and written again, which is what the picker
+/// did when it scaled a HEIC.
+Future<Uint8List?> jpegForPlantId(
+  Uint8List bytes, {
+  required double maxWidth,
+}) async {
+  final limit = maxWidth.isFinite ? maxWidth.round() : 0;
+  if (limit < 1) return null;
+  try {
+    if (_isJpeg(bytes)) {
+      final scrubbed = _jpegWithoutLocation(bytes);
+      if (scrubbed != null && _jpegFitsPlantId(scrubbed, limit)) {
+        return scrubbed;
+      }
+    }
+    return await _jpegFromCodec(bytes, targetWidth: limit);
+  } catch (_) {
+    return null;
+  }
+}
+
+bool _jpegFitsPlantId(Uint8List jpeg, int maxWidth) {
+  final width = _jpegWidth(jpeg);
+  if (width == null || width > maxWidth) return false;
+  final encoded = ((jpeg.length + 2) ~/ 3) * 4;
+  return encoded <= plantIdMaxImageChars;
+}
+
+/// SOF width, or null when this JPEG has no readable frame.
+int? _jpegWidth(Uint8List bytes) {
+  if (!_isJpeg(bytes)) return null;
+  var i = 2;
+  while (i + 8 < bytes.length) {
+    if (bytes[i] != 0xFF) return null;
+    while (i < bytes.length && bytes[i] == 0xFF) {
+      i++;
+    }
+    if (i >= bytes.length) return null;
+    final marker = bytes[i];
+    i++;
+    if (marker == 0xD9 || marker == 0xDA) return null;
+    if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) continue;
+    if (i + 2 > bytes.length) return null;
+    final length = (bytes[i] << 8) | bytes[i + 1];
+    if (length < 2 || i + length > bytes.length) return null;
+    final sof = marker != 0xC4 &&
+        marker != 0xC8 &&
+        marker != 0xCC &&
+        marker >= 0xC0 &&
+        marker <= 0xCF;
+    if (sof) {
+      if (length < 7) return null;
+      final width = (bytes[i + 5] << 8) | bytes[i + 6];
+      return width == 0 ? null : width;
+    }
+    i += length;
+  }
+  return null;
+}
+
 /// Bytes with location metadata removed, or null when this file cannot prove
 /// they are clean.
 ///
@@ -442,8 +512,13 @@ int _typeSize(int type) {
 }
 
 /// Pixels only. A PNG, WebP, or HEIC the codec cannot read is refused.
-Future<Uint8List?> _jpegFromCodec(Uint8List bytes) async {
-  final codec = await ui.instantiateImageCodec(bytes);
+/// [targetWidth] is the version 8 picker cap. Smaller pictures stay as they are.
+Future<Uint8List?> _jpegFromCodec(Uint8List bytes, {int? targetWidth}) async {
+  final codec = await ui.instantiateImageCodec(
+    bytes,
+    targetWidth: targetWidth,
+    allowUpscaling: false,
+  );
   try {
     final frame = await codec.getNextFrame();
     final image = frame.image;

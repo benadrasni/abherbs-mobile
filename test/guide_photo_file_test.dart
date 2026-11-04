@@ -7,6 +7,7 @@ import 'package:abherbs_flutter/data/guide_photo_file.dart';
 import 'package:abherbs_flutter/data/utils.dart';
 import 'package:exif/exif.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -275,6 +276,27 @@ void main() {
     expect(fromThumb, isNotNull);
     expect(_contains(fromThumb!, _latitude), isFalse);
     expect(_contains(fromThumb, '2024:01:02 03:04:05'.codeUnits), isTrue);
+  });
+
+  test('a plant.id photo stays within the version 8 width and loses its place',
+      () async {
+    final wide = img.Image(width: 800, height: 400);
+    final jpeg = img.encodeJpg(wide, quality: 90);
+    final fitted = (await jpegForPlantId(jpeg, maxWidth: 390))!;
+    expect(fitted[0], 0xFF);
+    expect(fitted[1], 0xD8);
+    expect(img.decodeJpg(fitted)!.width, lessThanOrEqualTo(390));
+    expect(((fitted.length + 2) ~/ 3) * 4, lessThanOrEqualTo(plantIdMaxImageChars));
+
+    final narrow = img.encodeJpg(img.Image(width: 40, height: 20), quality: 90);
+    expect(identical(await jpegForPlantId(narrow, maxWidth: 390), narrow), isTrue);
+
+    final png = base64Decode(_pngWithGps);
+    final fromPng = (await jpegForPlantId(png, maxWidth: 64))!;
+    expect(fromPng[0], 0xFF);
+    expect(fromPng[1], 0xD8);
+    expect(_contains(fromPng, 'GPSLatitude'.codeUnits), isFalse);
+    expect(img.decodeJpg(fromPng)!.width, lessThanOrEqualTo(64));
   });
 
   test('a png is re-encoded without its text', () async {

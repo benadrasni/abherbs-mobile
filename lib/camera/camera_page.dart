@@ -529,6 +529,7 @@ class _GuideCameraPageState extends State<GuideCameraPage>
     final identification = await identifyPlantPhoto(
       image: File(path),
       languageCode: plantIdLanguageTag(Localizations.localeOf(context)),
+      maxWidth: MediaQuery.sizeOf(context).width,
       onCreditsChanged: () {
         if (!mounted) return;
         _readAllowance();
