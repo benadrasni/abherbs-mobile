@@ -18,6 +18,7 @@ import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 const guideFieldGuideStartKey = Key('guideFieldGuideStart');
+const guideFieldGuideManageKey = Key('guideFieldGuideManage');
 const guideFieldGuideRestoreKey = Key('guideFieldGuideRestore');
 const guideFieldGuideYearlyKey = Key('guideFieldGuideYearly');
 const guideFieldGuideMonthlyKey = Key('guideFieldGuideMonthly');
@@ -255,13 +256,49 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
   }
 
   String _planNote(
-    S strings, {
+    S strings,
+    GuideFieldGuideOffer offer, {
     required bool locked,
-    required bool owned,
-    required String trial,
   }) {
-    if (!locked) return trial;
-    return owned ? strings.product_subscribed : '';
+    if (locked) return offer.owned ? strings.product_subscribed : '';
+    final price = offer.price;
+    if (price == null) return '';
+    final yearly = _billedYearly(offer);
+    if (!offer.trial) {
+      return yearly
+          ? strings.guide_field_guide_every_year(price)
+          : strings.guide_field_guide_every_month(price);
+    }
+    return yearly
+        ? strings.guide_field_guide_then_yearly(price)
+        : strings.guide_field_guide_then_monthly(price);
+  }
+
+  String _terms(S strings, GuideFieldGuideOffer offer, {required bool ios}) {
+    final price = offer.price;
+    if (price == null) return '';
+    final where = ios
+        ? strings.guide_field_guide_cancel_ios
+        : strings.guide_field_guide_cancel_android;
+    final yearly = _billedYearly(offer);
+    if (!offer.trial) {
+      final period = yearly
+          ? strings.guide_field_guide_every_year(price)
+          : strings.guide_field_guide_every_month(price);
+      final renewal = ios
+          ? strings.guide_field_guide_disclaimer_ios
+          : strings.guide_field_guide_disclaimer_android;
+      return '$period $renewal';
+    }
+    return yearly
+        ? strings.guide_field_guide_trial_yearly(price, where)
+        : strings.guide_field_guide_trial_monthly(price, where);
+  }
+
+  bool _billedYearly(GuideFieldGuideOffer offer) {
+    if (offer.period == 'P1Y') return true;
+    if (offer.period == 'P1M') return false;
+    return offer.plan == GuideFieldGuidePlan.yearly;
   }
 
   @override
@@ -351,6 +388,7 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
         (access.upgrade ||
             (!catalog.coveredByOlderPlan &&
                 !Purchases.fieldGuideFromAccountOnly));
+    final ios = Platform.isIOS;
     return ListView(
       padding: EdgeInsets.only(bottom: bottom),
       children: [
@@ -440,9 +478,8 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
                 title: strings.guide_field_guide_yearly,
                 note: _planNote(
                   strings,
+                  catalog.yearly,
                   locked: access.locked,
-                  owned: catalog.yearly.owned,
-                  trial: strings.guide_field_guide_then_yearly,
                 ),
                 price: catalog.yearly.price ??
                     strings.guide_field_guide_store_price,
@@ -458,9 +495,8 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
                 title: strings.guide_field_guide_monthly,
                 note: _planNote(
                   strings,
+                  catalog.monthly,
                   locked: access.locked,
-                  owned: catalog.monthly.owned,
-                  trial: strings.guide_field_guide_then_monthly,
                 ),
                 price: catalog.monthly.price ??
                     strings.guide_field_guide_store_price,
@@ -480,6 +516,14 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
               strings.guide_field_guide_unavailable,
               textAlign: TextAlign.center,
               style: TextStyle(color: colors.ink3, fontSize: 13, height: 1.4),
+            ),
+          ),
+        if (!access.locked && selected.price != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            child: Text(
+              _terms(strings, selected, ios: ios),
+              style: TextStyle(color: colors.ink, fontSize: 15, height: 1.45),
             ),
           ),
         Padding(
@@ -508,6 +552,18 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
           child: _TextButton(
+            buttonKey: guideFieldGuideManageKey,
+            label: strings.guide_field_guide_manage(
+              ios
+                  ? strings.guide_field_guide_cancel_ios
+                  : strings.guide_field_guide_cancel_android,
+            ),
+            onPressed: openGuideSubscriptionManage,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+          child: _TextButton(
             buttonKey: guideFieldGuideRestoreKey,
             label: strings.guide_person_restore,
             onPressed: access.locked ? null : () => unawaited(_restore()),
@@ -517,15 +573,6 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
           child: Text(
             strings.guide_field_guide_note,
-            style: TextStyle(color: colors.ink3, fontSize: 12, height: 1.45),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-          child: Text(
-            Platform.isIOS
-                ? strings.guide_field_guide_disclaimer_ios
-                : strings.guide_field_guide_disclaimer_android,
             style: TextStyle(color: colors.ink3, fontSize: 12, height: 1.45),
           ),
         ),
@@ -576,6 +623,15 @@ Future<GuideFieldGuideLoaded> loadGuideFieldGuide() async {
     owned: owned,
     error: response.error?.message,
   );
+}
+
+const _playSubscriptions =
+    'https://play.google.com/store/account/subscriptions?package=sk.ab.herbs';
+const _appleSubscriptions = 'https://apps.apple.com/account/subscriptions';
+
+/// Opens the store page where a trial or subscription is canceled.
+void openGuideSubscriptionManage() {
+  launchURL(Platform.isIOS ? _appleSubscriptions : _playSubscriptions);
 }
 
 Future<bool> buyGuideFieldGuide({
@@ -841,9 +897,9 @@ class _Plan extends StatelessWidget {
                       Text(
                         note,
                         style: TextStyle(
-                          color: colors.ink3,
-                          fontSize: 13,
-                          height: 1.3,
+                          color: colors.ink,
+                          fontSize: 14,
+                          height: 1.35,
                         ),
                       ),
                   ],
@@ -862,9 +918,9 @@ class _Plan extends StatelessWidget {
                   : Text(
                       price,
                       style: TextStyle(
-                        color: enabled ? colors.ink2 : colors.ink3,
+                        color: enabled ? colors.ink : colors.ink3,
                         fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                        fontSize: 16,
                       ),
                     ),
             ],

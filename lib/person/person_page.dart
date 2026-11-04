@@ -430,10 +430,7 @@ class _GuidePersonPageState extends State<GuidePersonPage> {
           _MenuRow(
             icon: Icons.eco_outlined,
             title: strings.guide_person_field_guide,
-            subtitle: guidePersonFieldGuideOffer(
-              trial: strings.guide_person_trial,
-              perks: strings.guide_person_field_guide_perks,
-            ),
+            subtitle: strings.guide_person_field_guide_perks,
             onPressed: widget.onFieldGuide == null
                 ? null
                 : () => _act(widget.onFieldGuide),

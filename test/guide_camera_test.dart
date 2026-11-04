@@ -508,7 +508,7 @@ void main() {
     expect(find.text('No names left'), findsOneWidget);
     expect(find.text('You can still get a name today.'), findsOneWidget);
     expect(find.text('Watch a short ad'), findsOneWidget);
-    expect(find.text('Field Guide · 7 days free'), findsOneWidget);
+    expect(find.text('Field Guide'), findsOneWidget);
     expect(find.text('Key it out'), findsOneWidget);
 
     await tester.tap(find.text('Watch a short ad'));
@@ -516,7 +516,7 @@ void main() {
     expect(ads, 1);
     expect(find.text('No names left'), findsOneWidget);
 
-    await tester.tap(find.text('Field Guide · 7 days free'));
+    await tester.tap(find.text('Field Guide'));
     await tester.pumpAndSettle();
     expect(fieldGuide, 1);
 
@@ -546,7 +546,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Watch a short ad'), findsNothing);
-    expect(find.text('Field Guide · 7 days free'), findsOneWidget);
+    expect(find.text('Field Guide'), findsOneWidget);
     expect(find.text('Key it out'), findsOneWidget);
   });
 

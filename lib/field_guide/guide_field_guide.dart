@@ -1,5 +1,7 @@
 import 'package:abherbs_flutter/data/utils.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 enum GuideFieldGuidePlan { yearly, monthly }
 
@@ -19,11 +21,19 @@ class GuideFieldGuideOffer {
   final String? price;
   final bool owned;
 
+  /// A free phase followed by a paid phase. The row price is the paid phase.
+  final bool trial;
+
+  /// ISO billing period of the paid phase, such as `P1Y` or `P1M`.
+  final String? period;
+
   const GuideFieldGuideOffer({
     required this.plan,
     required this.productId,
     required this.price,
     required this.owned,
+    this.trial = true,
+    this.period,
   });
 }
 
@@ -63,6 +73,10 @@ class GuideFieldGuideCatalog {
       monthlyPrice: monthly.price,
       owned: owned,
       error: error,
+      yearlyTrial: yearly.trial,
+      monthlyTrial: monthly.trial,
+      yearlyPeriod: yearly.period,
+      monthlyPeriod: monthly.period,
     );
   }
 }
@@ -83,6 +97,10 @@ GuideFieldGuideCatalog guideFieldGuideCatalog({
   required String? monthlyPrice,
   required Set<String> owned,
   String? error,
+  bool yearlyTrial = true,
+  bool monthlyTrial = true,
+  String? yearlyPeriod,
+  String? monthlyPeriod,
 }) {
   return GuideFieldGuideCatalog(
     yearly: GuideFieldGuideOffer(
@@ -90,12 +108,16 @@ GuideFieldGuideCatalog guideFieldGuideCatalog({
       productId: fieldGuideYearly,
       price: _price(yearlyPrice),
       owned: owned.contains(fieldGuideYearly),
+      trial: yearlyTrial,
+      period: yearlyPeriod,
     ),
     monthly: GuideFieldGuideOffer(
       plan: GuideFieldGuidePlan.monthly,
       productId: fieldGuideMonthly,
       price: _price(monthlyPrice),
       owned: owned.contains(fieldGuideMonthly),
+      trial: monthlyTrial,
+      period: monthlyPeriod,
     ),
     storeAvailable: storeAvailable,
     photoStorage: owned.contains(subscriptionMonthly) ||
@@ -201,8 +223,8 @@ GuideFieldGuideLoaded guideFieldGuideFromStore({
   required Set<String> owned,
   String? error,
 }) {
-  final yearly = _picked(products, fieldGuideYearly);
-  final monthly = _picked(products, fieldGuideMonthly);
+  final yearly = _picked(products, fieldGuideYearly, yearly: true);
+  final monthly = _picked(products, fieldGuideMonthly, yearly: false);
   return GuideFieldGuideLoaded(
     catalog: guideFieldGuideCatalog(
       storeAvailable: storeAvailable,
@@ -210,6 +232,10 @@ GuideFieldGuideLoaded guideFieldGuideFromStore({
       monthlyPrice: monthly?.displayPrice,
       owned: owned,
       error: error,
+      yearlyTrial: yearly?.trial ?? false,
+      monthlyTrial: monthly?.trial ?? false,
+      yearlyPeriod: yearly?.period,
+      monthlyPeriod: monthly?.period,
     ),
     products: {
       if (yearly != null) fieldGuideYearly: yearly.product,
@@ -218,18 +244,125 @@ GuideFieldGuideLoaded guideFieldGuideFromStore({
   );
 }
 
-({ProductDetails product, String displayPrice})? _picked(
-  List<ProductDetails> products,
-  String id,
-) {
+class GuideFieldGuideCandidate {
+  final String recurringPrice;
+  final double recurringRaw;
+  final String? period;
+  final bool trial;
+
+  const GuideFieldGuideCandidate({
+    required this.recurringPrice,
+    required this.recurringRaw,
+    required this.trial,
+    this.period,
+  });
+}
+
+class GuideFieldGuidePick {
+  final int index;
+  final String price;
+  final bool trial;
+  final String? period;
+
+  const GuideFieldGuidePick({
+    required this.index,
+    required this.price,
+    required this.trial,
+    this.period,
+  });
+}
+
+/// Buys a free trial on the yearly or monthly period when the store offers one.
+/// The price is the paid phase. A same-priced plan on the other period is left.
+GuideFieldGuidePick? guideFieldGuidePick(
+  List<GuideFieldGuideCandidate> items, {
+  required bool yearly,
+}) {
+  if (items.isEmpty) return null;
+  final preferred = yearly ? 'P1Y' : 'P1M';
+  final matched = [
+    for (var i = 0; i < items.length; i++)
+      if (items[i].period == preferred) i,
+  ];
+  final pool =
+      matched.isEmpty ? [for (var i = 0; i < items.length; i++) i] : matched;
+  int? trialIndex;
+  int? paidIndex;
+  var paidRaw = -1.0;
+  for (final i in pool) {
+    final item = items[i];
+    if (item.trial && trialIndex == null) trialIndex = i;
+    if (item.recurringRaw > paidRaw) {
+      paidIndex = i;
+      paidRaw = item.recurringRaw;
+    }
+  }
+  final buy = trialIndex ?? paidIndex;
+  if (buy == null) return null;
+  final chosen = items[buy];
+  final price = chosen.recurringRaw > 0 || paidIndex == null
+      ? chosen.recurringPrice
+      : items[paidIndex].recurringPrice;
+  return GuideFieldGuidePick(
+    index: buy,
+    price: price,
+    trial: chosen.trial,
+    period:
+        chosen.period ?? (paidIndex == null ? null : items[paidIndex].period),
+  );
+}
+
+({
+  ProductDetails product,
+  String displayPrice,
+  bool trial,
+  String? period,
+})? _picked(List<ProductDetails> products, String id, {required bool yearly}) {
   final matches = products.where((product) => product.id == id).toList();
-  final choice = guideFieldGuideOfferChoice([
-    for (final product in matches)
-      (price: product.price, rawPrice: product.rawPrice),
-  ]);
-  if (choice == null) return null;
+  final pick = guideFieldGuidePick(
+    [for (final product in matches) _candidate(product)],
+    yearly: yearly,
+  );
+  if (pick == null) return null;
   return (
-    product: matches[choice.buyIndex],
-    displayPrice: choice.displayPrice,
+    product: matches[pick.index],
+    displayPrice: pick.price,
+    trial: pick.trial,
+    period: pick.period,
+  );
+}
+
+/// Play's product price is the first phase. A free trial makes that price
+/// zero, so the row uses the later paid phase instead.
+GuideFieldGuideCandidate _candidate(ProductDetails product) {
+  if (product is GooglePlayProductDetails) {
+    final index = product.subscriptionIndex;
+    final offers = product.productDetails.subscriptionOfferDetails;
+    if (index != null && offers != null && index < offers.length) {
+      final phases = offers[index].pricingPhases;
+      var trial = false;
+      PricingPhaseWrapper? paid;
+      for (final phase in phases) {
+        if (phase.priceAmountMicros <= 0) {
+          trial = true;
+        } else {
+          paid = phase;
+        }
+      }
+      if (paid != null) {
+        return GuideFieldGuideCandidate(
+          recurringPrice: paid.formattedPrice,
+          recurringRaw: paid.priceAmountMicros / 1000000,
+          period: paid.billingPeriod,
+          trial: trial,
+        );
+      }
+    }
+  }
+  final free = product.rawPrice == 0 && product.price.trim().isNotEmpty;
+  return GuideFieldGuideCandidate(
+    recurringPrice: product.price,
+    recurringRaw: product.rawPrice,
+    trial: free,
   );
 }

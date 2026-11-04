@@ -247,14 +247,6 @@ void main() {
       ),
       'Unlimited names · no ads · Seen synced',
     );
-    expect(
-      guidePersonFieldGuideOffer(
-        trial: '7 days free',
-        perks: 'Unlimited • No Ads • Seen sync • Offline',
-      ),
-      '7 days free • Unlimited • No Ads • Seen sync • Offline',
-    );
-
     final names = guideLiveAllowance(
       signedIn: true,
       subscribed: false,
@@ -482,7 +474,7 @@ void main() {
     expect(find.text('1 name left'), findsNothing);
     expect(find.text('Your account'), findsNothing);
     expect(
-      find.text('7 days free • Unlimited • No Ads • Seen sync • Offline'),
+      find.text('Unlimited • No Ads • Seen sync • Offline'),
       findsOneWidget,
     );
     expect(find.text('Delete account'), findsNothing);

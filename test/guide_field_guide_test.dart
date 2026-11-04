@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 void main() {
   tearDown(() {
@@ -176,9 +178,42 @@ void main() {
       ],
     );
     expect(loaded.catalog.yearly.price, r'$19.99');
+    expect(loaded.catalog.yearly.trial, isTrue);
     expect(loaded.catalog.monthly.price, r'$2.99');
+    expect(loaded.catalog.monthly.trial, isFalse);
     expect(loaded.products[fieldGuideYearly]?.rawPrice, 0);
     expect(loaded.products[fieldGuideMonthly]?.rawPrice, 2.99);
+  });
+
+  test('a Play trial phase keeps the later paid price on the row', () {
+    final loaded = guideFieldGuideFromStore(
+      storeAvailable: true,
+      owned: const {},
+      products: [
+        _playOffer(
+          id: fieldGuideYearly,
+          token: 'yearly-trial',
+          phases: const [
+            (price: 'Free', micros: 0, period: 'P7D'),
+            (price: r'$19.99', micros: 19990000, period: 'P1Y'),
+          ],
+        ),
+        _playOffer(
+          id: fieldGuideMonthly,
+          token: 'monthly',
+          phases: const [
+            (price: r'$2.99', micros: 2990000, period: 'P1M'),
+          ],
+        ),
+      ],
+    );
+    expect(loaded.catalog.yearly.price, r'$19.99');
+    expect(loaded.catalog.yearly.trial, isTrue);
+    expect(loaded.catalog.yearly.period, 'P1Y');
+    expect(loaded.products[fieldGuideYearly]?.price, 'Free');
+    expect(loaded.catalog.monthly.price, r'$2.99');
+    expect(loaded.catalog.monthly.trial, isFalse);
+    expect(loaded.catalog.monthly.period, 'P1M');
   });
 
   test('Field Guide plans hide ads, and the old paid app is not Field Guide',
@@ -247,7 +282,16 @@ void main() {
     expect(find.text('Unlimited names from photos'), findsOneWidget);
     expect(find.text(r'$19.99'), findsOneWidget);
     expect(find.text(r'$2.99'), findsOneWidget);
-    expect(find.text('Start 7 days free'), findsOneWidget);
+    expect(find.text(r'7 days free, then $19.99 a year'), findsOneWidget);
+    expect(find.text(r'7 days free, then $2.99 a month'), findsOneWidget);
+    expect(
+      find.text(
+        r'Free for 7 days. The trial ends after 7 days, then $19.99 is charged every year. Cancel in Google Play before the trial ends and you will not be charged.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Subscribe'), findsOneWidget);
+    expect(find.text('Manage or cancel in Google Play'), findsOneWidget);
 
     await tester.tap(find.byKey(guideFieldGuideStartKey));
     await tester.pump();
@@ -255,6 +299,12 @@ void main() {
 
     await tester.tap(find.text('Monthly'));
     await tester.pump();
+    expect(
+      find.text(
+        r'Free for 7 days. The trial ends after 7 days, then $2.99 is charged every month. Cancel in Google Play before the trial ends and you will not be charged.',
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(guideFieldGuideStartKey));
     await tester.pump();
     expect(bought, GuideFieldGuidePlan.monthly);
@@ -287,7 +337,7 @@ void main() {
 
     expect(find.text('You already have Field Guide.'), findsOneWidget);
     expect(find.text('Subscribed'), findsWidgets);
-    expect(find.text('Start 7 days free'), findsNothing);
+    expect(find.text('Subscribe'), findsNothing);
     expect(find.text('Change'), findsNothing);
     expect(find.text('Yearly'), findsOneWidget);
     expect(find.text('Monthly'), findsOneWidget);
@@ -322,7 +372,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Change'), findsOneWidget);
-    expect(find.text('Start 7 days free'), findsNothing);
+    expect(find.text('Subscribe'), findsNothing);
     expect(find.text('You already have Field Guide.'), findsNothing);
     await tester.tap(find.byKey(guideFieldGuideStartKey));
     await tester.pump();
@@ -358,7 +408,7 @@ void main() {
     expect(find.text('Yearly'), findsOneWidget);
     expect(find.text('Monthly'), findsOneWidget);
     expect(find.text('Subscribed'), findsOneWidget);
-    expect(find.text('Start 7 days free'), findsNothing);
+    expect(find.text('Subscribe'), findsNothing);
     await tester.tap(find.byKey(guideFieldGuideStartKey));
     await tester.tap(find.text('Yearly'));
     await tester.pump();
@@ -413,7 +463,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Field Guide'), findsOneWidget);
-    expect(find.text('Start 7 days free'), findsOneWidget);
+    expect(find.text('Subscribe'), findsOneWidget);
     expect(find.text('Yearly'), findsOneWidget);
     expect(find.text('Monthly'), findsOneWidget);
     expect(
@@ -430,7 +480,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a monthly plan stays open while the yearly price is still coming',
+  testWidgets(
+      'a monthly plan stays open while the yearly price is still coming',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -598,6 +649,43 @@ Widget _app(Widget home) {
     supportedLocales: S.delegate.supportedLocales,
     home: home,
   );
+}
+
+ProductDetails _playOffer({
+  required String id,
+  required String token,
+  required List<({String price, int micros, String period})> phases,
+}) {
+  return GooglePlayProductDetails.fromProductDetails(
+    ProductDetailsWrapper(
+      description: '',
+      name: id,
+      productId: id,
+      productType: ProductType.subs,
+      title: id,
+      subscriptionOfferDetails: [
+        SubscriptionOfferDetailsWrapper(
+          basePlanId: id,
+          offerId: token,
+          offerTags: const [],
+          offerIdToken: token,
+          pricingPhases: [
+            for (final phase in phases)
+              PricingPhaseWrapper(
+                billingCycleCount: phase.micros == 0 ? 1 : 0,
+                billingPeriod: phase.period,
+                formattedPrice: phase.price,
+                priceAmountMicros: phase.micros,
+                priceCurrencyCode: 'USD',
+                recurrenceMode: phase.micros == 0
+                    ? RecurrenceMode.finiteRecurring
+                    : RecurrenceMode.infiniteRecurring,
+              ),
+          ],
+        ),
+      ],
+    ),
+  ).single;
 }
 
 ProductDetails _product(String id, String price, double raw) {
