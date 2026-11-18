@@ -222,6 +222,20 @@ void main() {
     );
   });
 
+  test('a later new-plants read inserts New in the book once', () {
+    final spices = _cover(title: 'Spices', count: 8);
+    final vegetables = _cover(title: 'Vegetables', count: 9);
+    final fresh = _cover(title: '', count: 18, isNew: true);
+    final withFresh = guideListsWithFresh([vegetables, spices], fresh);
+    expect(withFresh.map((cover) => cover.isNew), [true, false, false]);
+    expect(withFresh[1].title, 'Spices');
+    expect(
+      guideListsWithFresh(withFresh, fresh),
+      same(withFresh),
+    );
+    expect(guideListsWithFresh([spices], null), [spices]);
+  });
+
   test('New in the book stays first among the other lists', () {
     final covers = [
       _cover(title: 'Vegetables', count: 9),

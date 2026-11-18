@@ -906,6 +906,30 @@ Future<GuideResultPlant?> _catalogPlant(
   return plant.toResult(label: label);
 }
 
+/// Language lists plus whether the new-plants read threw.
+///
+/// [freshFailed] is set only when that query throws. An empty
+/// `lists_custom/new` is a finished read and leaves the flag false.
+class GuideListsRead {
+  final List<GuideListCover> covers;
+  final bool freshFailed;
+
+  const GuideListsRead(this.covers, {this.freshFailed = false});
+}
+
+/// Puts [fresh] into [lists] when this read is the one that found it.
+///
+/// A list that already has New in the book is left as it is. A null cover
+/// is an empty `lists_custom/new`.
+List<GuideListCover> guideListsWithFresh(
+  List<GuideListCover> lists,
+  GuideListCover? fresh,
+) {
+  if (fresh == null || !fresh.isNew) return lists;
+  if (lists.any((cover) => cover.isNew)) return lists;
+  return [...lists, fresh]..sort(compareGuideLists);
+}
+
 /// The v3 count index, or null when the phone should answer from headers.
 Future<Map<String, int>?> _indexCounts(List<String> keys, String label) async {
   if (await _guideOnPhoneOnly()) return null;
@@ -950,7 +974,7 @@ Future<List<GuideKeyPlant>> _readKeyPlants() async {
   }
 }
 
-Future<List<GuideListCover>> loadGuideLists(String languageCode) async {
+Future<GuideListsRead> loadGuideLists(String languageCode) async {
   final chosen = await _languageLists(languageCode);
   final pending = <_PendingCover>[];
 
@@ -985,37 +1009,57 @@ Future<List<GuideListCover>> loadGuideLists(String languageCode) async {
   });
 
   // A slow "new" query must not throw away the language lists already read.
-  _Newest? newest;
+  var freshFailed = false;
   try {
-    newest = await _newestAddition();
+    final newest = await _newestAddition();
+    if (newest != null) pending.add(_pendingFresh(newest));
   } catch (error) {
+    freshFailed = true;
     debugPrint('guide lists new: $error');
   }
-  if (newest != null) {
-    pending.add(_PendingCover(
-      coverId: newest.coverId,
-      thumbIds: newest.thumbIds,
-      cover: GuideListCover(
-        title: '',
-        photoPath: null,
-        path: listsCustomReference
-            .child('new')
-            .child(newest.dateKey)
-            .child(firebaseAttributeList),
-        isNew: true,
-        count: newest.count,
-        latest: newest.date,
-      ),
-    ));
-  }
 
+  final covers = await _coversFromPending(pending, chosen.code);
+  return GuideListsRead(covers, freshFailed: freshFailed);
+}
+
+/// New in the book on its own. Throws when the read does not finish.
+/// Null when `lists_custom/new` is empty.
+Future<GuideListCover?> loadGuideFreshCover() async {
+  final newest = await _newestAddition();
+  if (newest == null) return null;
+  final covers = await _coversFromPending([_pendingFresh(newest)], '');
+  return covers.isEmpty ? null : covers.first;
+}
+
+_PendingCover _pendingFresh(_Newest newest) {
+  return _PendingCover(
+    coverId: newest.coverId,
+    thumbIds: newest.thumbIds,
+    cover: GuideListCover(
+      title: '',
+      photoPath: null,
+      path: listsCustomReference
+          .child('new')
+          .child(newest.dateKey)
+          .child(firebaseAttributeList),
+      isNew: true,
+      count: newest.count,
+      latest: newest.date,
+    ),
+  );
+}
+
+Future<List<GuideListCover>> _coversFromPending(
+  List<_PendingCover> pending,
+  String languageCode,
+) async {
   final photoIds = <String>{
     for (final item in pending) ...item.thumbIds,
     for (final item in pending)
       if (item.coverId != null) item.coverId!,
   };
   final photos = await _headerPhotos(photoIds);
-  final genusPhotos = await _genusCoverPhotos(pending, chosen.code);
+  final genusPhotos = await _genusCoverPhotos(pending, languageCode);
   final covers = pending.map((item) {
     final cover = item.cover;
     final photo = item.coverId != null

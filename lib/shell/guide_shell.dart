@@ -58,6 +58,11 @@ class _GuideShellState extends State<GuideShell> with WidgetsBindingObserver {
   /// set to an empty list.
   bool _listsFailed = false;
 
+  /// The new-plants query threw. The language lists stay on screen, and this
+  /// stays set until a later read of `lists_custom/new` finishes.
+  bool _freshFailed = false;
+  int _freshTicket = 0;
+
   /// Bumped when the person picks another tab while a connection check for
   /// Book is still running, so that check cannot open Book afterwards.
   int _tabTicket = 0;
@@ -146,7 +151,13 @@ class _GuideShellState extends State<GuideShell> with WidgetsBindingObserver {
     _loadFinds();
     // A timed-out read leaves _lists null. Ask again; that is not an empty
     // catalog, and the first attempt often loses the startup connection.
-    if (_lists == null) _loadLists();
+    // A finished language list can still be missing New in the book when
+    // only that query threw.
+    if (_lists == null) {
+      _loadLists();
+    } else if (_freshFailed) {
+      unawaited(_retryFresh());
+    }
   }
 
   /// A failed fetch keeps a remembered floor closed. The shell only shows
@@ -441,16 +452,19 @@ class _GuideShellState extends State<GuideShell> with WidgetsBindingObserver {
     final code = _languageCode;
     if (code == null) return;
     final ticket = ++_listTicket;
+    ++_freshTicket;
     if (_listsFailed) {
       setState(() => _listsFailed = false);
     }
     try {
-      final lists = await loadGuideLists(code);
+      final read = await loadGuideLists(code);
       if (!mounted || ticket != _listTicket) return;
       setState(() {
-        _lists = lists;
+        _lists = read.covers;
         _listsFailed = false;
+        _freshFailed = read.freshFailed;
       });
+      if (read.freshFailed) unawaited(_retryFresh());
     } catch (error) {
       debugPrint('guide lists: $error');
       if (!mounted || ticket != _listTicket) return;
@@ -458,6 +472,28 @@ class _GuideShellState extends State<GuideShell> with WidgetsBindingObserver {
       setState(() {
         if (_lists == null) _listsFailed = true;
       });
+    }
+  }
+
+  /// One more read of New in the book. A miss stays flagged for the next
+  /// resume. An empty catalog clears the flag.
+  Future<void> _retryFresh() async {
+    if (!_freshFailed) return;
+    final ticket = ++_freshTicket;
+    final listTicket = _listTicket;
+    try {
+      final cover = await loadGuideFreshCover();
+      if (!mounted || ticket != _freshTicket || listTicket != _listTicket) {
+        return;
+      }
+      setState(() {
+        _freshFailed = false;
+        final lists = _lists;
+        if (lists == null) return;
+        _lists = guideListsWithFresh(lists, cover);
+      });
+    } catch (error) {
+      debugPrint('guide lists new: $error');
     }
   }
 
