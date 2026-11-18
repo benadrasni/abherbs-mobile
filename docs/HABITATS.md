@@ -85,6 +85,7 @@ These fields are the only place habitats and `cultivated` are edited. Everything
 | Field | From |
 |---|---|
 | `name`, `family`, `url`, `filterColor`, `filterPetal`, `filterDistribution` | `plants_headers/{id}` |
+| `filterLeaf`, `filterCone` | `plants_headers/{id}`, only on a gymnosperm |
 | `filterHabitat` | `plants_v2/{name}/habitats` (v3 codes) |
 | `floweringFrom`, `floweringTo` | `plants_v2/{name}` (the result list sorts plants in flower this month first) |
 | `cultivated` | `plants_v2/{name}/cultivated`, written only when `true` |

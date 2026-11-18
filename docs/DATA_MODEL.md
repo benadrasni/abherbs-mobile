@@ -195,7 +195,7 @@ Order in a key is always `color_habitat_petal_distribution`. Empty slot = not se
 | Habitat (v3, redesign key) | 1 meadow, 3 water and wetland, 4 forest, 5 rocks and mountains, 7 dry and sunny, 8 fields and roadsides, 9 heath and bog, 10 coast |
 | Petal | 1 four or less, 2 five, 3 many, 4 zygomorphic |
 
-`filterPetal` is never empty for a flowering plant. Three petals and apetalous flowers use **1**. A gymnosperm order leaves `filterColor` and `filterPetal` empty and is omitted from `lists_4_*` and `counts_4_*`. *Ginkgo biloba* (id 1570) was published with both codes filled and remains in those lists.
+`filterPetal` is never empty for a flowering plant. Three petals and apetalous flowers use **1**. A gymnosperm order leaves `filterColor` and `filterPetal` empty and is omitted from `lists_4_*` and `counts_4_*`. It carries `filterLeaf` (1 bundle, 2 single, 3 tufts, 4 scales, 5 fans) and `filterCone` (1 long woody, 2 small round, 3 berry or cup) on `plants_headers` and `plants_headers_v3`. The app and the website filter those two fields in memory. *Ginkgo biloba* (id 1570) is a conifer in that key, not in the flower lists.
 | Distribution | TDWG level-2 numeric codes (10 Northern Europe … 91 Antarctic). Mapped from POWO distribution text via `abherbs-auto/tdwg.csv`. |
 
 The shipped app reads v2 (`counts_4_v2`, `lists_4_v2`, `plants_headers`). The redesign key reads `plants_headers_v3`, `counts_4_v3` and `lists_4_v3`, built from `plants_v2.habitats`. Those three nodes are world-readable and not client-writable. v3 has 14,310 count keys. Codes 2 and 6 are not reused. The all-empty key is `___`.

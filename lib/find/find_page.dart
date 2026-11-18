@@ -3,6 +3,7 @@ import 'package:abherbs_flutter/shell/guide_actions.dart';
 import 'package:abherbs_flutter/shell/guide_analytics.dart';
 import 'package:abherbs_flutter/camera/guide_camera.dart';
 import 'package:abherbs_flutter/data/guide_data.dart';
+import 'package:abherbs_flutter/key/conifer.dart';
 import 'package:abherbs_flutter/person/guide_person.dart';
 import 'package:abherbs_flutter/shell/guide_theme.dart';
 import 'package:abherbs_flutter/shell/guide_widgets.dart';
@@ -430,23 +431,58 @@ double _oneLineWidth(BuildContext context, String text, TextStyle style) {
   return width;
 }
 
-class _KeyCard extends StatelessWidget {
+enum _KeyKind { flowers, conifers }
+
+class _KeyCard extends StatefulWidget {
   final Map<String, int>? colorCounts;
   final int? catalogCount;
 
   const _KeyCard({required this.colorCounts, required this.catalogCount});
 
   @override
+  State<_KeyCard> createState() => _KeyCardState();
+}
+
+class _KeyCardState extends State<_KeyCard> {
+  _KeyKind _kind = _KeyKind.flowers;
+  GuideLeafCounts? _leaves;
+  bool _leafFailed = false;
+  bool _loadingLeaves = false;
+
+  void _showFlowers() {
+    setState(() => _kind = _KeyKind.flowers);
+  }
+
+  void _showConifers() {
+    setState(() => _kind = _KeyKind.conifers);
+    if (_leaves == null && !_loadingLeaves) _loadLeaves();
+  }
+
+  Future<void> _loadLeaves() async {
+    _loadingLeaves = true;
+    try {
+      final counts = await loadLeafCounts();
+      if (!mounted) return;
+      setState(() {
+        _leaves = counts;
+        _leafFailed = false;
+        _loadingLeaves = false;
+      });
+    } catch (error) {
+      debugPrint('guide leaf counts: $error');
+      if (!mounted) return;
+      setState(() {
+        _leafFailed = true;
+        _loadingLeaves = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = GuideColors.of(context);
     final s = S.of(context);
-    final swatches = [
-      ('1', s.color_white),
-      ('2', s.color_yellow),
-      ('3', s.color_red),
-      ('4', s.color_blue),
-      ('5', s.color_green),
-    ];
+    final flowers = _kind == _KeyKind.flowers;
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(20, 22, 20, 0),
       child: Column(
@@ -459,49 +495,278 @@ class _KeyCard extends StatelessWidget {
           const SizedBox(height: 8),
           const GuideKeyStepper(filled: 1),
           const SizedBox(height: 12),
-          Text(s.guide_color_question, style: GuideType.question(colors)),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final swatch in swatches)
-                Expanded(
-                  child: _Swatch(
-                    id: swatch.$1,
-                    label: guideCap(swatch.$2),
-                    color: guideSwatchColor(swatch.$1),
-                    count: colorCounts == null ? null : colorCounts![swatch.$1],
-                  ),
-                ),
-            ],
+          _KindSwitch(
+            flowers: flowers,
+            onFlowers: _showFlowers,
+            onConifers: _showConifers,
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () => openGuideColor(context, ''),
-              style: TextButton.styleFrom(
-                foregroundColor: colors.moss,
-                // The default 48dp target left a band of cream above Seen lately.
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                minimumSize: Size.zero,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                textStyle: const TextStyle(
-                  fontFamily: GuideType.sans,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+          const SizedBox(height: 14),
+          if (flowers) ..._flowerBody(context, colors, s) else ..._coniferBody(context, colors, s),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _flowerBody(BuildContext context, GuideColors colors, S s) {
+    final swatches = [
+      ('1', s.color_white),
+      ('2', s.color_yellow),
+      ('3', s.color_red),
+      ('4', s.color_blue),
+      ('5', s.color_green),
+    ];
+    final catalogCount = widget.catalogCount;
+    return [
+      Text(s.guide_color_question, style: GuideType.question(colors)),
+      const SizedBox(height: 14),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final swatch in swatches)
+            Expanded(
+              child: _Swatch(
+                id: swatch.$1,
+                label: guideCap(swatch.$2),
+                color: guideSwatchColor(swatch.$1),
+                count: widget.colorCounts == null
+                    ? null
+                    : widget.colorCounts![swatch.$1],
               ),
+            ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      SizedBox(
+        width: double.infinity,
+        child: TextButton(
+          onPressed: () => openGuideColor(context, ''),
+          style: TextButton.styleFrom(
+            foregroundColor: colors.moss,
+            // The default 48dp target left a band of cream above Seen lately.
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            minimumSize: Size.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+            textStyle: const TextStyle(
+              fontFamily: GuideType.sans,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          child: Text(
+            catalogCount == null
+                ? s.guide_color_skip
+                : s.guide_color_skip_count(catalogCount),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _coniferBody(BuildContext context, GuideColors colors, S s) {
+    final total = _leaves?.total;
+    return [
+      Text(s.guide_leaf_question, style: GuideType.question(colors)),
+      const SizedBox(height: 6),
+      Text(
+        s.guide_leaf_hint,
+        style: TextStyle(fontSize: 13, height: 1.4, color: colors.ink3),
+      ),
+      const SizedBox(height: 14),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final id in guideLeafIds)
+            Expanded(
+              child: _LeafChoice(
+                id: id,
+                count: _leafFailed ? null : _leaves?.byLeaf[id],
+                onTap: () {
+                  final count = _leaves?.byLeaf[id];
+                  if (count != null && count <= 0) {
+                    guideNoConifers(context);
+                    return;
+                  }
+                  openGuideConifer(context, id);
+                },
+              ),
+            ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      SizedBox(
+        width: double.infinity,
+        child: TextButton(
+          onPressed: () {
+            if (total != null && total <= 0) {
+              guideNoConifers(context);
+              return;
+            }
+            openGuideConifer(context, '');
+          },
+          style: TextButton.styleFrom(
+            foregroundColor: colors.moss,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            minimumSize: Size.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+            textStyle: const TextStyle(
+              fontFamily: GuideType.sans,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          child: Text(
+            total == null ? s.guide_leaf_skip : s.guide_leaf_skip_count(total),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    ];
+  }
+}
+
+class _KindSwitch extends StatelessWidget {
+  final bool flowers;
+  final VoidCallback onFlowers;
+  final VoidCallback onConifers;
+
+  const _KindSwitch({
+    required this.flowers,
+    required this.onFlowers,
+    required this.onConifers,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final s = S.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.paper2,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: Row(
+          children: [
+            _kindButton(
+              colors,
+              s.guide_kind_flowers,
+              flowers,
+              onFlowers,
+            ),
+            _kindButton(
+              colors,
+              s.guide_kind_conifers,
+              !flowers,
+              onConifers,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _kindButton(
+    GuideColors colors,
+    String label,
+    bool on,
+    VoidCallback onTap,
+  ) {
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: on,
+        child: Material(
+          color: on ? colors.moss : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            onTap: on ? null : onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                catalogCount == null
-                    ? s.guide_color_skip
-                    : s.guide_color_skip_count(catalogCount!),
+                label,
                 textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: GuideType.sans,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: on ? colors.onMoss : colors.ink,
+                ),
               ),
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LeafChoice extends StatelessWidget {
+  final String id;
+  final int? count;
+  final VoidCallback onTap;
+
+  const _LeafChoice({
+    required this.id,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final strings = S.of(context);
+    final empty = count == 0;
+    return Opacity(
+      opacity: empty ? 0.38 : 1,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(2, 18, 2, 4),
+                  child: Column(
+                    children: [
+                      GuideLeafGlyph(id: id, size: 46),
+                      const SizedBox(height: 4),
+                      Text(
+                        guideCap(guideLeafName(strings, id)),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, height: 1.15),
+                      ),
+                      Text(
+                        guideLeafExample(strings, id),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          height: 1.15,
+                          color: colors.ink3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (count != null)
+                  PositionedDirectional(
+                    top: 0,
+                    end: 2,
+                    child: Text(
+                      '$count',
+                      style: TextStyle(fontSize: 11, color: colors.ink3),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

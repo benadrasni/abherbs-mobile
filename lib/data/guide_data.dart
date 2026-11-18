@@ -89,6 +89,7 @@ class GuideFind {
 
 const guideHabitatRouteName = 'GuideHabitat';
 const guidePetalRouteName = 'GuidePetal';
+const guideConeRouteName = 'GuideCone';
 const guideResultsRouteName = 'GuideResults';
 const guideListRouteName = 'GuideList';
 const guideSpeciesRouteName = 'GuideSpecies';
@@ -168,6 +169,7 @@ void guideRailPerson(BuildContext context) {
 bool guideIsKeyRoute(String? name) {
   return name == guideHabitatRouteName ||
       name == guidePetalRouteName ||
+      name == guideConeRouteName ||
       name == guideResultsRouteName;
 }
 
@@ -191,13 +193,17 @@ void leaveGuideCameraForFind(BuildContext context) {
 void popGuideKeyToHabitat(BuildContext context) {
   Navigator.popUntil(context, (route) {
     final name = route.settings.name;
-    return name != guidePetalRouteName && name != guideResultsRouteName;
+    return name != guidePetalRouteName &&
+        name != guideConeRouteName &&
+        name != guideResultsRouteName;
   });
 }
 
 /// v3 habitat codes, in the order the key shows them.
 const guideHabitatIds = ['4', '1', '7', '8', '3', '9', '5', '10'];
 const guidePetalIds = ['1', '2', '3', '4'];
+const guideLeafIds = ['1', '2', '3', '4', '5'];
+const guideConeIds = ['1', '2', '3'];
 
 class GuideColorCounts {
   final Map<String, int> byColor;
@@ -344,6 +350,113 @@ Future<GuidePetalCounts> loadPetalCounts(
     colorId: colorId,
     habitatId: habitatId,
   );
+}
+
+class GuideLeafCounts {
+  final int total;
+  final Map<String, int> byLeaf;
+
+  const GuideLeafCounts({required this.total, required this.byLeaf});
+}
+
+/// Leaf counts for the conifer key. Headers only: there is no leaf index.
+Future<GuideLeafCounts> loadLeafCounts() async {
+  final plants = await loadGuideKeyPlants();
+  return GuideLeafCounts(
+    total: guideConiferCount(plants),
+    byLeaf: {
+      for (final id in guideLeafIds)
+        id: guideConiferCount(plants, leafId: id),
+    },
+  );
+}
+
+Future<GuideHabitatCounts> loadConiferHabitatCounts(String leafId) async {
+  final plants = await loadGuideKeyPlants();
+  return GuideHabitatCounts(
+    total: guideConiferCount(plants, leafId: leafId),
+    byHabitat: {
+      for (final id in guideHabitatIds)
+        id: guideConiferCount(plants, leafId: leafId, habitatId: id),
+    },
+  );
+}
+
+class GuideConeCounts {
+  final int total;
+  final Map<String, int> byCone;
+
+  const GuideConeCounts({required this.total, required this.byCone});
+}
+
+Future<GuideConeCounts> loadConeCounts(
+  String leafId,
+  String? habitatId,
+) async {
+  final plants = await loadGuideKeyPlants();
+  return GuideConeCounts(
+    total: guideConiferCount(
+      plants,
+      leafId: leafId,
+      habitatId: habitatId,
+    ),
+    byCone: {
+      for (final id in guideConeIds)
+        id: guideConiferCount(
+          plants,
+          leafId: leafId,
+          habitatId: habitatId,
+          coneId: id,
+        ),
+    },
+  );
+}
+
+Future<List<GuideResultPlant>> loadConiferResults({
+  required String leafId,
+  String? habitatId,
+  required String coneId,
+  String? regionId,
+  required String languageCode,
+}) async {
+  final matched = guideConiferList(
+    await loadGuideKeyPlants(),
+    leafId: leafId,
+    habitatId: habitatId,
+    coneId: coneId,
+    regionId: regionId,
+  );
+  final lang = getLanguageCode(languageCode);
+  final labels = await _phoneLabelsFor(lang);
+  return [
+    for (final plant in matched)
+      plant.toResult(
+        label: guideResultLabel(
+          plant.name,
+          stored: labels,
+          cached: translationCache[plant.name],
+        ),
+      ),
+  ];
+}
+
+Future<Map<String, int>> loadConiferRegionCounts({
+  required String leafId,
+  String? habitatId,
+  required String coneId,
+}) async {
+  final plants = await loadGuideKeyPlants();
+  final ids = ['', ...guideAllRegionIds];
+  return {
+    for (final id in ids)
+      id: guideConiferCount(
+        plants,
+        leafId: leafId,
+        habitatId: habitatId,
+        coneId: coneId,
+        regionId: id.isEmpty ? null : id,
+      ),
+  };
 }
 
 Future<List<GuideResultPlant>> loadGuideResults({

@@ -360,6 +360,10 @@ class GuideKeyPlant {
   final Set<String> habitats;
   final Set<String> petals;
   final Set<String> regions;
+
+  /// Conifer key. Empty means this plant stays in the flower key.
+  final Set<String> leaves;
+  final Set<String> cones;
   final String? photoPath;
   final int floweringFrom;
   final int floweringTo;
@@ -372,6 +376,8 @@ class GuideKeyPlant {
     required this.habitats,
     required this.petals,
     required this.regions,
+    this.leaves = const {},
+    this.cones = const {},
     required this.photoPath,
     required this.floweringFrom,
     required this.floweringTo,
@@ -430,6 +436,8 @@ List<GuideKeyPlant> readGuideKeyPlants(dynamic raw) {
       habitats: guideFilterCodes(value['filterHabitat']),
       petals: guideFilterCodes(value['filterPetal']),
       regions: guideFilterCodes(value['filterDistribution']),
+      leaves: guideFilterCodes(value['filterLeaf']),
+      cones: guideFilterCodes(value['filterCone']),
       photoPath: guideStoragePath(value[firebaseAttributeUrl]),
       floweringFrom: guideResultInt(value['floweringFrom']),
       floweringTo: guideResultInt(value['floweringTo']),
@@ -459,10 +467,77 @@ bool guideKeyPlantMatches(
   String? petalId,
   String? regionId,
 }) {
+  // A plant with a leaf code is a conifer and stays out of the flower key.
+  if (plant.leaves.isNotEmpty) return false;
   return guideKeySelected(plant.colors, colorId) &&
       guideKeySelected(plant.habitats, habitatId) &&
       guideKeySelected(plant.petals, petalId) &&
       guideKeySelected(plant.regions, regionId);
+}
+
+/// The conifer key. A plant with no leaf code is a flower and stays out.
+bool guideConiferMatches(
+  GuideKeyPlant plant, {
+  String? leafId,
+  String? habitatId,
+  String? coneId,
+  String? regionId,
+}) {
+  if (plant.leaves.isEmpty) return false;
+  return guideKeySelected(plant.leaves, leafId) &&
+      guideKeySelected(plant.habitats, habitatId) &&
+      guideKeySelected(plant.cones, coneId) &&
+      guideKeySelected(plant.regions, regionId);
+}
+
+int guideConiferCount(
+  Iterable<GuideKeyPlant> plants, {
+  String? leafId,
+  String? habitatId,
+  String? coneId,
+  String? regionId,
+}) {
+  var count = 0;
+  for (final plant in plants) {
+    if (guideConiferMatches(
+      plant,
+      leafId: leafId,
+      habitatId: habitatId,
+      coneId: coneId,
+      regionId: regionId,
+    )) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/// Conifers that pass the key, in catalog-id order.
+List<GuideKeyPlant> guideConiferList(
+  Iterable<GuideKeyPlant> plants, {
+  String? leafId,
+  String? habitatId,
+  String? coneId,
+  String? regionId,
+}) {
+  final matched = [
+    for (final plant in plants)
+      if (guideConiferMatches(
+        plant,
+        leafId: leafId,
+        habitatId: habitatId,
+        coneId: coneId,
+        regionId: regionId,
+      ))
+        plant,
+  ];
+  matched.sort((a, b) {
+    final left = int.tryParse(a.id);
+    final right = int.tryParse(b.id);
+    if (left != null && right != null) return left.compareTo(right);
+    return a.id.compareTo(b.id);
+  });
+  return matched;
 }
 
 int guideKeyCount(

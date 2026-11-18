@@ -7,6 +7,7 @@ import 'package:abherbs_flutter/data/guide_data.dart';
 import 'package:abherbs_flutter/data/guide_location.dart';
 import 'package:abherbs_flutter/person/guide_person.dart';
 import 'package:abherbs_flutter/data/guide_results.dart';
+import 'package:abherbs_flutter/key/cone_page.dart';
 import 'package:abherbs_flutter/key/habitat_page.dart';
 import 'package:abherbs_flutter/person/language_page.dart';
 import 'package:abherbs_flutter/book/list_page.dart';
@@ -211,6 +212,95 @@ Future<void> openGuideOffline(BuildContext context) {
         onFieldGuide: () => openGuideFieldGuide(context),
       ),
     ),
+  );
+}
+
+void openGuideConifer(BuildContext context, String leafId) {
+  Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      settings: const RouteSettings(name: guideHabitatRouteName),
+      builder: (context) => GuideHabitatPage(
+        colorId: '',
+        conifers: true,
+        leafId: leafId,
+        loadCounts: (_) => loadConiferHabitatCounts(leafId),
+        onContinue: (habitatId) => openGuideCone(
+          context,
+          leafId: leafId,
+          habitatId: habitatId,
+        ),
+      ),
+    ),
+  );
+}
+
+void openGuideCone(
+  BuildContext context, {
+  required String leafId,
+  String? habitatId,
+}) {
+  Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      settings: const RouteSettings(name: guideConeRouteName),
+      builder: (context) => GuideConePage(
+        leafId: leafId,
+        habitatId: habitatId,
+        onContinue: (coneId) => openGuideConiferResults(
+          context,
+          leafId: leafId,
+          habitatId: habitatId,
+          coneId: coneId ?? '',
+        ),
+      ),
+    ),
+  );
+}
+
+void openGuideConiferResults(
+  BuildContext context, {
+  required String leafId,
+  String? habitatId,
+  required String coneId,
+}) {
+  final language = Localizations.localeOf(context).languageCode;
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute<void>(
+      settings: const RouteSettings(name: guideResultsRouteName),
+      builder: (context) => GuideResultsPage(
+        colorId: '',
+        habitatId: habitatId,
+        petalId: '',
+        conifer: true,
+        leafId: leafId,
+        coneId: coneId,
+        loadResults: (regionId) => loadConiferResults(
+          leafId: leafId,
+          habitatId: habitatId,
+          coneId: coneId,
+          regionId: regionId,
+          languageCode: language,
+        ),
+        loadPrefs: loadGuideResultPrefs,
+        savePrefs: saveGuideResultPrefs,
+        loadSeen: loadGuideSeenNames,
+        loadRegionCounts: () => loadConiferRegionCounts(
+          leafId: leafId,
+          habitatId: habitatId,
+          coneId: coneId,
+        ),
+        locate: locateGuideRegion,
+        onOpenPlant: (context, name) => _openListedPlant(
+          context,
+          name,
+          GuidePlantSource.key,
+        ),
+        onTryPhoto: openGuideCamera,
+      ),
+    ),
+    (route) => route.settings.name != guideResultsRouteName,
   );
 }
 

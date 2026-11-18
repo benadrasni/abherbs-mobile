@@ -8,6 +8,43 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('a plant with a leaf code stays out of the flower key', () {
+    final ginkgo = GuideKeyPlant(
+      id: '1570',
+      name: 'Ginkgo biloba',
+      colors: const {'2'},
+      habitats: const {'4'},
+      petals: const {'1'},
+      regions: const {'11'},
+      leaves: const {'5'},
+      cones: const {'3'},
+      photoPath: null,
+      floweringFrom: 4,
+      floweringTo: 5,
+      cultivated: true,
+    );
+    final maple = GuideKeyPlant(
+      id: '1',
+      name: 'Acer campestre',
+      colors: const {'5'},
+      habitats: const {'4'},
+      petals: const {'2'},
+      regions: const {'11'},
+      photoPath: null,
+      floweringFrom: 5,
+      floweringTo: 6,
+      cultivated: false,
+    );
+    expect(guideKeyPlantMatches(ginkgo, colorId: '2'), isFalse);
+    expect(guideConiferMatches(ginkgo, leafId: '5', coneId: '3'), isTrue);
+    expect(guideConiferMatches(ginkgo, leafId: '1'), isFalse);
+    expect(guideConiferMatches(maple), isFalse);
+    expect(guideKeyPlantMatches(maple, colorId: '5'), isTrue);
+    expect(guideConiferCount([ginkgo, maple]), 1);
+    expect(guideConiferCount([ginkgo, maple], leafId: '5'), 1);
+    expect(guideKeyCount([ginkgo, maple], colorId: '2'), 0);
+  });
+
   test('a stored vernacular replaces the Latin name on a key result', () {
     final plant = GuideKeyPlant(
       id: '9',

@@ -1395,6 +1395,12 @@ void guideNoFlowers(BuildContext context) {
   );
 }
 
+void guideNoConifers(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(S.of(context).snack_no_conifers)),
+  );
+}
+
 class GuideViewSwitch extends StatelessWidget {
   final String photos;
   final String plates;

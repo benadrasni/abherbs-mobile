@@ -1,6 +1,7 @@
 import 'package:abherbs_flutter/key/filter_utils.dart';
 import 'package:abherbs_flutter/generated/l10n.dart';
 import 'package:abherbs_flutter/data/guide_data.dart';
+import 'package:abherbs_flutter/key/conifer.dart';
 import 'package:abherbs_flutter/shell/guide_theme.dart';
 import 'package:abherbs_flutter/shell/guide_widgets.dart';
 import 'package:abherbs_flutter/key/habitat_glyphs.dart';
@@ -58,12 +59,18 @@ class GuideHabitatPage extends StatefulWidget {
   final Future<GuideHabitatCounts> Function(String colorId) loadCounts;
   final void Function(String? habitatId) onContinue;
 
+  /// Conifer key. [leafId] is the leaf chosen on Find. Empty means every conifer.
+  final bool conifers;
+  final String leafId;
+
   const GuideHabitatPage({
     super.key,
     required this.colorId,
     required this.onContinue,
     this.counts,
     this.loadCounts = loadHabitatCounts,
+    this.conifers = false,
+    this.leafId = '',
   });
 
   @override
@@ -89,7 +96,9 @@ class _GuideHabitatPageState extends State<GuideHabitatPage> {
       _counts = widget.counts;
       _failed = false;
     }
-    if (widget.colorId != oldWidget.colorId && widget.counts == null) {
+    if ((widget.colorId != oldWidget.colorId ||
+            widget.leafId != oldWidget.leafId) &&
+        widget.counts == null) {
       _counts = null;
       _failed = false;
       _load();
@@ -118,7 +127,11 @@ class _GuideHabitatPageState extends State<GuideHabitatPage> {
     if (counts == null && !_failed) return;
     final remaining = counts?.byHabitat[id];
     if (remaining != null && remaining <= 0) {
-      guideNoFlowers(context);
+      if (widget.conifers) {
+        guideNoConifers(context);
+      } else {
+        guideNoFlowers(context);
+      }
       return;
     }
     widget.onContinue(id);
@@ -128,7 +141,11 @@ class _GuideHabitatPageState extends State<GuideHabitatPage> {
     final counts = _counts;
     if (counts == null && !_failed) return;
     if (counts != null && counts.total <= 0) {
-      guideNoFlowers(context);
+      if (widget.conifers) {
+        guideNoConifers(context);
+      } else {
+        guideNoFlowers(context);
+      }
       return;
     }
     widget.onContinue(null);
@@ -139,24 +156,38 @@ class _GuideHabitatPageState extends State<GuideHabitatPage> {
     final colors = GuideColors.of(context);
     final strings = S.of(context);
     final colorName = getFilterColorValue(context, widget.colorId);
+    final leafName = widget.conifers
+        ? guideCap(guideLeafName(strings, widget.leafId))
+        : '';
     return GuideKeyScaffold(
       withTabs: true,
       child: ListView(
         padding: const EdgeInsets.only(bottom: 20),
         children: [
-          GuideBackButton(label: guideCap(strings.filter_color)),
-          if (colorName.isNotEmpty) ...[
+          GuideBackButton(
+            label: widget.conifers
+                ? strings.guide_back_leaves
+                : guideCap(strings.filter_color),
+          ),
+          if (colorName.isNotEmpty || leafName.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  GuideFilterPill(
-                    label: guideCap(colorName),
-                    leading: _ColorDot(colorId: widget.colorId),
-                    onPressed: () => Navigator.maybePop(context),
-                  ),
+                  if (colorName.isNotEmpty)
+                    GuideFilterPill(
+                      label: guideCap(colorName),
+                      leading: _ColorDot(colorId: widget.colorId),
+                      onPressed: () => Navigator.maybePop(context),
+                    ),
+                  if (leafName.isNotEmpty)
+                    GuideFilterPill(
+                      label: leafName,
+                      leading: GuideLeafGlyph(id: widget.leafId, size: 16),
+                      onPressed: () => Navigator.maybePop(context),
+                    ),
                 ],
               ),
             ),
@@ -243,6 +274,10 @@ class _GuideHabitatPageState extends State<GuideHabitatPage> {
 
   String _skipLabel(S strings, String colorName) {
     final total = _counts?.total;
+    if (widget.conifers) {
+      if (total == null) return strings.guide_habitat_skip_conifers;
+      return strings.guide_habitat_skip_conifers_count(total);
+    }
     if (colorName.isEmpty) {
       if (total == null) return strings.guide_habitat_skip_any;
       return strings.guide_habitat_skip_any_count(total);

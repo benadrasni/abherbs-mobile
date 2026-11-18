@@ -7,6 +7,7 @@ import 'package:abherbs_flutter/data/guide_data.dart';
 import 'package:abherbs_flutter/data/guide_results.dart';
 import 'package:abherbs_flutter/shell/guide_theme.dart';
 import 'package:abherbs_flutter/shell/guide_widgets.dart';
+import 'package:abherbs_flutter/key/conifer.dart';
 import 'package:abherbs_flutter/key/habitat_page.dart';
 import 'package:abherbs_flutter/key/petal_page.dart';
 import 'package:abherbs_flutter/purchase/purchases.dart';
@@ -66,6 +67,11 @@ class GuideResultsPage extends StatefulWidget {
   final String colorId;
   final String? habitatId;
   final String petalId;
+
+  /// Conifer key. Leaf and cone replace color and petal on the pills.
+  final bool conifer;
+  final String leafId;
+  final String coneId;
   final List<GuideResultPlant>? initialPlants;
   final GuideResultPrefs? initialPrefs;
   final Set<String>? initialSeen;
@@ -95,6 +101,9 @@ class GuideResultsPage extends StatefulWidget {
     required this.colorId,
     required this.habitatId,
     required this.petalId,
+    this.conifer = false,
+    this.leafId = '',
+    this.coneId = '',
     required this.loadResults,
     required this.loadPrefs,
     required this.savePrefs,
@@ -428,7 +437,48 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
               children: [
                 if (_isList)
                   _listHead(strings, arranged.plants.length, seenCount)
-                else ...[
+                else if (widget.conifer) ...[
+                  GuideBackButton(label: strings.guide_back_cones),
+                  if (widget.leafId.isNotEmpty ||
+                      widget.habitatId != null ||
+                      widget.coneId.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          if (widget.leafId.isNotEmpty)
+                            GuideFilterPill(
+                              label: guideCap(
+                                guideLeafName(strings, widget.leafId),
+                              ),
+                              leading: GuideLeafGlyph(
+                                id: widget.leafId,
+                                size: 16,
+                              ),
+                              onPressed: () => popGuideKeyToFind(context),
+                            ),
+                          if (widget.habitatId != null)
+                            GuideFilterPill(
+                              label: guideCap(
+                                guideHabitatName(strings, widget.habitatId!),
+                              ),
+                              onPressed: () => popGuideKeyToHabitat(context),
+                            ),
+                          if (widget.coneId.isNotEmpty)
+                            GuideFilterPill(
+                              label: guideCap(
+                                guideConeName(strings, widget.coneId),
+                              ),
+                              onPressed: () => Navigator.maybePop(context),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                ] else ...[
                   GuideBackButton(label: strings.guide_back_petals),
                   if (showColor ||
                       widget.habitatId != null ||
@@ -467,20 +517,20 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
                     ),
                     const SizedBox(height: 14),
                   ],
-                  if (_prefsReady)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _CountLine(
-                        count: arranged.plants.length,
-                        caption: _caption(
-                          strings,
-                          arranged.plants.length,
-                          regionName,
-                          seenCount,
-                        ),
+                ],
+                if (!_isList && _prefsReady)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _CountLine(
+                      count: arranged.plants.length,
+                      caption: _caption(
+                        strings,
+                        arranged.plants.length,
+                        regionName,
+                        seenCount,
                       ),
                     ),
-                ],
+                  ),
               ],
             ),
           ),
