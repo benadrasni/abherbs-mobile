@@ -112,6 +112,42 @@ void main() {
     expect(picked, 'skipped');
   });
 
+  testWidgets('a conifer place with no plants is dimmed', (tester) async {
+    String? picked = 'unset';
+    await _pump(
+      tester,
+      _app(
+        GuideHabitatPage(
+          colorId: '',
+          conifers: true,
+          leafId: '5',
+          counts: _counts(coast: 0),
+          onContinue: (id) => picked = id ?? 'skipped',
+        ),
+      ),
+    );
+
+    expect(
+      find.text('In a garden, or not sure? Show all 100 conifers'),
+      findsOneWidget,
+    );
+    expect(_tileOpacity(tester, 'Coast'), 0.38);
+    expect(_tileOpacity(tester, 'Forest'), 1);
+
+    await tester.ensureVisible(find.text('Coast'));
+    await tester.tap(find.text('Coast'));
+    await tester.pump();
+    expect(
+      find.text('There are no conifers matching criteria.'),
+      findsOneWidget,
+    );
+    expect(picked, 'unset');
+
+    await tester.tap(find.text('Forest'));
+    await tester.pump();
+    expect(picked, '4');
+  });
+
   testWidgets('a place with no flowers stays on this step', (tester) async {
     String? picked = 'unset';
     await _pump(
@@ -128,6 +164,7 @@ void main() {
     expect(
         find.text('There are no flowers matching criteria.'), findsOneWidget);
     expect(picked, 'unset');
+    expect(_tileOpacity(tester, 'Coast'), 1);
   });
 
   testWidgets('waits for the counts before continuing', (tester) async {
@@ -266,6 +303,16 @@ GuideHabitatCounts _counts({int coast = 88}) {
       '10': coast,
     },
   );
+}
+
+double _tileOpacity(WidgetTester tester, String label) {
+  final opacity = tester.widget<Opacity>(
+    find.ancestor(
+      of: find.text(label),
+      matching: find.byType(Opacity),
+    ),
+  );
+  return opacity.opacity;
 }
 
 Offset _end(Path path) {

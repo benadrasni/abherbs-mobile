@@ -265,6 +265,8 @@ class _GuideHabitatPageState extends State<GuideHabitatPage> {
           ids: guideHabitatIds.sublist(i, end),
           columns: perRow,
           counts: _counts,
+          // A conifer leaf or cone with no plants fades. Flower places stay as they are.
+          fadeEmpty: widget.conifers,
           onPick: _pick,
         ),
       );
@@ -310,12 +312,14 @@ class _HabitatRow extends StatelessWidget {
   final List<String> ids;
   final int columns;
   final GuideHabitatCounts? counts;
+  final bool fadeEmpty;
   final ValueChanged<String> onPick;
 
   const _HabitatRow({
     required this.ids,
     required this.columns,
     required this.counts,
+    required this.fadeEmpty,
     required this.onPick,
   });
 
@@ -336,52 +340,56 @@ class _HabitatRow extends StatelessWidget {
     final name = guideCap(guideHabitatName(strings, id));
     final examples = guideHabitatExamples(strings, id);
     final remaining = counts?.byHabitat[id];
-    return Material(
-      color: colors.cream,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: colors.rule),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => onPick(id),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GuideHabitatGlyph(id: id),
-                  const Spacer(),
-                  Text(
-                    remaining == null ? ' ' : '$remaining',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.ink3,
+    final empty = fadeEmpty && remaining == 0;
+    return Opacity(
+      opacity: empty ? 0.38 : 1,
+      child: Material(
+        color: colors.cream,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: colors.rule),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => onPick(id),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GuideHabitatGlyph(id: id),
+                    const Spacer(),
+                    Text(
+                      remaining == null ? ' ' : '$remaining',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.ink3,
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    height: 1.2,
                   ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  height: 1.2,
                 ),
-              ),
-              Text(
-                examples,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.3,
-                  color: colors.ink3,
+                Text(
+                  examples,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.3,
+                    color: colors.ink3,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
