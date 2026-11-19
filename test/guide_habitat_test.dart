@@ -128,7 +128,7 @@ void main() {
     );
 
     expect(
-      find.text('In a garden, or not sure? Show all 100 conifers'),
+      find.text('In a garden, or not sure? Show all 100 gymnosperms'),
       findsOneWidget,
     );
     expect(_tileOpacity(tester, 'Coast'), 0.38);
@@ -138,7 +138,7 @@ void main() {
     await tester.tap(find.text('Coast'));
     await tester.pump();
     expect(
-      find.text('There are no conifers matching criteria.'),
+      find.text('There are no gymnosperms matching criteria.'),
       findsOneWidget,
     );
     expect(picked, 'unset');
