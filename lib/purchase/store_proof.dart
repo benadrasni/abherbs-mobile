@@ -8,6 +8,17 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 const _pendingProofs = 'pending_store_proofs';
+Future<void> _pendingQueue = Future<void>.value();
+
+Future<void> _enqueuePending(Future<void> Function() task) {
+  final next = _pendingQueue.catchError((Object _) {}).then((_) => task());
+  _pendingQueue = next;
+  return next;
+}
+
+Future<void> clearPendingStoreProofs() {
+  return _enqueuePending(() => _writePending(const []));
+}
 
 enum StoreProofResult { accepted, rejected, deferred }
 
@@ -170,17 +181,24 @@ Future<void> _writePending(List<_PendingProof> pending) async {
   );
 }
 
-Future<void> _rememberPending(String store, String productId, String proof) async {
-  final pending = await _readPending();
-  pending.removeWhere((item) => item.store == store && item.productId == productId);
-  pending.add(_PendingProof(store, productId, proof));
-  final kept = pending.length > 8 ? pending.sublist(pending.length - 8) : pending;
-  await _writePending(kept);
+Future<void> _rememberPending(String store, String productId, String proof) {
+  return _enqueuePending(() async {
+    final pending = await _readPending();
+    pending.removeWhere(
+        (item) => item.store == store && item.productId == productId);
+    pending.add(_PendingProof(store, productId, proof));
+    final kept =
+        pending.length > 8 ? pending.sublist(pending.length - 8) : pending;
+    await _writePending(kept);
+  });
 }
 
-Future<void> _dropPending(String store, String productId) async {
-  final pending = await _readPending();
-  final next = pending.where((item) => item.store != store || item.productId != productId);
-  if (next.length == pending.length) return;
-  await _writePending(next.toList());
+Future<void> _dropPending(String store, String productId) {
+  return _enqueuePending(() async {
+    final pending = await _readPending();
+    final next = pending
+        .where((item) => item.store != store || item.productId != productId);
+    if (next.length == pending.length) return;
+    await _writePending(next.toList());
+  });
 }

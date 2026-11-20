@@ -57,8 +57,8 @@
     "observations": {
       "by users": {
         "$uid": {
-          ".read": "auth != null && auth.uid == $uid",
-          ".write": "auth != null && auth.uid == $uid",
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid",
           "by date": {
             "list": {
               ".indexOn": ["status", "order"]
@@ -72,7 +72,7 @@
           "list": {
             ".indexOn": "status",
             "$id": {
-              ".write": "auth != null && $id.beginsWith(auth.uid + '_') && (!newData.exists() || (newData.child('id').val() == $id && newData.child('status').val() == 'review' && (!data.exists() || data.child('status').val() == 'review')))"
+              ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && $id.beginsWith(auth.uid + '_') && (!newData.exists() || (newData.child('id').val() == $id && newData.child('status').val() == 'review' && (!data.exists() || data.child('status').val() == 'review')))"
             }
           }
         },
@@ -80,7 +80,7 @@
           "$plant": {
             "list": {
               "$id": {
-                ".write": "auth != null && $id.beginsWith(auth.uid + '_') && (!newData.exists() || (newData.child('id').val() == $id && newData.child('status').val() == 'review' && (!data.exists() || data.child('status').val() == 'review')))"
+                ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && $id.beginsWith(auth.uid + '_') && (!newData.exists() || (newData.child('id').val() == $id && newData.child('status').val() == 'review' && (!data.exists() || data.child('status').val() == 'review')))"
               }
             }
           }
@@ -88,8 +88,8 @@
       },
       "logs": {
         "$uid": {
-          ".read": "auth != null && auth.uid == $uid",
-          ".write": "auth != null && auth.uid == $uid",
+          ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid",
           ".indexOn": "time"
         }
       }
@@ -97,11 +97,8 @@
 
     "credits": {
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid",
-        "$ts": {
-          ".validate": "newData.isString() && newData.val().length <= 64"
-        }
+        ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid && !newData.exists()"
       }
     },
 
@@ -112,28 +109,30 @@
       }
     },
 
+    "ad_rewards": { ".read": false, ".write": false },
+    "anonymous_daily": { ".read": false, ".write": false },
     "photo_name_tally": { ".read": false, ".write": false },
     "purchase_proofs": { ".read": false, ".write": false },
     "store_accounts": { ".read": false, ".write": false },
 
     "users": {
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid && !newData.exists()",
+        ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid && !newData.exists()",
         "token": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid",
           ".validate": "newData.isString() && newData.val().length <= 4096"
         },
         "favorites": {
-          ".write": "auth != null && auth.uid == $uid"
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid"
         },
         "purchases": {
-          ".write": "auth != null && auth.uid == $uid"
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid && !newData.exists()"
         },
         "entitlements": { ".write": false },
+        "proof_keys": { ".read": false, ".write": false },
         "credits": {
-          ".write": "auth != null && auth.uid == $uid",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+          ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous' && auth.uid == $uid && !newData.exists()"
         }
       }
     },

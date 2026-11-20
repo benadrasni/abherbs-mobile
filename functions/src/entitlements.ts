@@ -186,10 +186,18 @@ export function planGrant(input: {
       path: `purchase_proofs/${key}`,
       value: proofRecord(input.uid, input.purchase, active, input.now, previousSignedDate),
     },
+    {
+      path: `users/${input.uid}/proof_keys/${key}`,
+      value: true,
+    },
   ];
   if (existing && existing.uid !== input.uid) {
     writes.push({
       path: `users/${existing.uid}/entitlements/products/${existing.productId}`,
+      value: null,
+    });
+    writes.push({
+      path: `users/${existing.uid}/proof_keys/${key}`,
       value: null,
     });
   }

@@ -256,18 +256,28 @@ function memoryDb(live: (id: string) => boolean = (id) => id === uid): Entitleme
   };
 }
 
-test('granting then releasing removes the proof and the account record', async () => {
-  const db = memoryDb();
+test('granting then releasing deactivates the proof, clears account state, and allows restore after account deletion', async () => {
+  let ownerAlive = true;
+  const db = memoryDb((id) => (id === uid ? ownerAlive : true));
   const granted = await grantPurchase(db, uid, yearly(), now);
   assert.equal('products' in granted && granted.products.field_guide_yearly, true);
-  const proofs = db.tree.purchase_proofs as Record<string, unknown>;
-  assert.ok(proofs.app_store_1000);
+  const proofs = db.tree.purchase_proofs as Record<string, { active?: boolean }>;
+  assert.equal(proofs.app_store_1000?.active, true);
   await releaseStorePurchases(db, uid);
-  assert.equal(proofs.app_store_1000, undefined);
+  assert.equal(proofs.app_store_1000?.active, false);
   const account = (db.tree.users as Record<string, Record<string, unknown>> | undefined)?.[uid];
   assert.equal(account?.entitlements, undefined);
+  assert.equal(account?.proof_keys, undefined);
   const accounts = db.tree.store_accounts as Record<string, unknown> | undefined;
   assert.equal(accounts?.[token], undefined);
+
+  // While the old account is still alive, another account cannot take the tokened receipt.
+  assert.deepEqual(await grantPurchase(db, 'user-2', yearly(), now + 1), { error: 'other-account' });
+
+  // Once the old account is deleted, a new account can restore the tokened receipt.
+  ownerAlive = false;
+  const restored = await grantPurchase(db, 'user-2', yearly(), now + 2);
+  assert.equal('products' in restored && restored.products.field_guide_yearly, true);
 });
 
 test('a receipt without an account token is claimed by the first live account', async () => {

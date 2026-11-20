@@ -50,25 +50,33 @@ class Observation {
   }
 
   Observation.fromJson(key, Map data) {
-    this.key = key;
-    this.id = data[observationId];
-    this.plant = data[observationPlant];
-    this.date = DateTime.fromMillisecondsSinceEpoch(
-        data[observationDate][observationTime]);
-    this.longitude = data[observationLongitude].toDouble();
-    this.latitude = data[observationLatitude].toDouble();
-    this.note = data[observationNote] ?? "";
-    this.photoPaths = data[observationPhotoPaths] ?? [];
-    this.status = data[observationStatus];
-    this.order = data[observationOrder];
-    this.indoors = data[observationIndoors] ?? false;
+    this.key = key?.toString() ?? "";
+    this.id = data[observationId]?.toString() ?? "";
+    this.plant = data[observationPlant]?.toString() ?? "";
+    final rawDate = data[observationDate];
+    final rawTime = rawDate is Map ? rawDate[observationTime] : null;
+    final millis = rawTime is num
+        ? rawTime.toInt()
+        : int.tryParse(rawTime?.toString() ?? '') ?? 0;
+    this.date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final rawLng = data[observationLongitude];
+    final rawLat = data[observationLatitude];
+    this.longitude = rawLng is num ? rawLng.toDouble() : 0.0;
+    this.latitude = rawLat is num ? rawLat.toDouble() : 0.0;
+    this.note = data[observationNote]?.toString() ?? "";
+    this.photoPaths = _observationList(data[observationPhotoPaths]);
+    this.status =
+        data[observationStatus]?.toString() ?? observationStatusPrivate;
+    final rawOrder = data[observationOrder];
+    this.order = rawOrder is num ? rawOrder.toInt() : 0;
+    final rawIndoors = data[observationIndoors];
+    this.indoors = rawIndoors is bool ? rawIndoors : false;
     final confirmedValue = data[observationConfirmed];
     this.confirmed = confirmedValue is bool ? confirmedValue : true;
     final sourceValue = data[observationSource];
     this.source = sourceValue is String ? sourceValue : "";
     final candidateValue = data[observationCandidates];
-    this.candidates =
-        candidateValue is List ? List<dynamic>.from(candidateValue) : [];
+    this.candidates = _observationList(candidateValue);
     this.country = guideRowCountry(data[observationCountry]) ?? "";
   }
 
@@ -112,4 +120,17 @@ String guideObservationPlantKey(String name) {
   final cleaned = name.trim().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
   if (cleaned.isEmpty) return '_';
   return cleaned;
+}
+
+List<dynamic> _observationList(dynamic raw) {
+  if (raw is List) {
+    return [for (final item in raw) if (item != null) item];
+  }
+  if (raw is Map) {
+    final entries = raw.entries.toList()
+      ..sort((a, b) => (int.tryParse(a.key.toString()) ?? 0)
+          .compareTo(int.tryParse(b.key.toString()) ?? 0));
+    return [for (final entry in entries) if (entry.value != null) entry.value];
+  }
+  return [];
 }

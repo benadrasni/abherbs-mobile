@@ -111,15 +111,26 @@ export async function registerStoreAccount(db: EntitlementDb, uid: string): Prom
 }
 
 export async function releaseStorePurchases(db: EntitlementDb, uid: string): Promise<void> {
-  const all = await db.get('purchase_proofs');
-  if (all && typeof all === 'object') {
-    for (const [key, value] of Object.entries(all as Record<string, unknown>)) {
-      if (!/^[A-Za-z0-9_-]{1,128}$/.test(key)) continue;
-      const proof = proofRecordOf(value);
-      if (!proof || proof.uid !== uid) continue;
-      await db.remove(`purchase_proofs/${key}`);
+  const keys = new Set<string>();
+  const indexed = await db.get(`users/${uid}/proof_keys`);
+  if (indexed && typeof indexed === 'object') {
+    for (const key of Object.keys(indexed as Record<string, unknown>)) {
+      if (/^[A-Za-z0-9_-]{1,128}$/.test(key)) keys.add(key);
     }
   }
+  const entitlements = entitlementRows(await db.get(`users/${uid}/entitlements`));
+  for (const row of Object.values(entitlements)) {
+    if (/^[A-Za-z0-9_-]{1,128}$/.test(row.originalId)) keys.add(row.originalId);
+  }
+  const now = Date.now();
+  for (const key of keys) {
+    const proof = proofRecordOf(await db.get(`purchase_proofs/${key}`));
+    if (!proof || proof.uid !== uid) continue;
+    // Keep the proof row (inactive) so planGrant can still match previousOwnerExists
+    // when this user deletes their account and restores a tokened purchase on a new one.
+    await db.set(`purchase_proofs/${key}`, { ...proof, active: false, updatedAt: now });
+  }
+  await db.remove(`users/${uid}/proof_keys`);
   await db.remove(`users/${uid}/entitlements`);
   await db.remove(`store_accounts/${storeAccountToken(uid)}`);
 }

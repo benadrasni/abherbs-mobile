@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:abherbs_flutter/camera/plant_id_search.dart';
+import 'package:abherbs_flutter/data/prefs.dart';
 import 'package:abherbs_flutter/seen/observation.dart';
 import 'package:abherbs_flutter/generated/l10n.dart';
 import 'package:abherbs_flutter/purchase/purchases.dart';
@@ -64,8 +65,8 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(
   }
 
   final reauthed = await reauthenticateCurrentUser(context);
-  if (!reauthed) {
-    return DeleteAccountResult.canceled;
+  if (reauthed != DeleteAccountResult.success) {
+    return reauthed;
   }
   if (!context.mounted) {
     return DeleteAccountResult.canceled;
@@ -99,8 +100,8 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(
       return DeleteAccountResult.canceled;
     }
     final reauthed = await reauthenticateCurrentUser(context);
-    if (!reauthed) {
-      return DeleteAccountResult.canceled;
+    if (reauthed != DeleteAccountResult.success) {
+      return reauthed;
     }
     if (!context.mounted) {
       return DeleteAccountResult.canceled;
@@ -151,6 +152,8 @@ Future<void> deleteSignedInAccount() async {
   Purchases.hasOldVersion = false;
   Purchases.clearAccountProducts();
   Auth.credits = 0;
+  await Prefs.setBool(keyOldVersion, false);
+  await clearPendingStoreProofs();
 }
 
 Future<void> _deleteUserData(String uid) async {
@@ -182,12 +185,14 @@ Future<void> _deleteUserData(String uid) async {
           .child(id)
           .remove();
       if (observation.plant.isNotEmpty) {
-        await publicObservationsReference
-            .child(firebaseObservationsByPlant)
-            .child(observation.plant)
-            .child(firebaseAttributeList)
-            .child(id)
-            .remove();
+        try {
+          await publicObservationsReference
+              .child(firebaseObservationsByPlant)
+              .child(guideObservationPlantKey(observation.plant))
+              .child(firebaseAttributeList)
+              .child(id)
+              .remove();
+        } catch (_) {}
       }
       final privatePaths = <String>[];
       for (final path in observation.photoPaths) {
@@ -264,10 +269,11 @@ Future<void> _deleteStorageFolder(firebase_storage.Reference ref) async {
   }
 }
 
-Future<bool> reauthenticateCurrentUser(BuildContext context) async {
+Future<DeleteAccountResult> reauthenticateCurrentUser(
+    BuildContext context) async {
   final user = Auth.firebaseAuth.currentUser;
   if (user == null) {
-    return false;
+    return DeleteAccountResult.failed;
   }
   final providers = user.providerData.map((info) => info.providerId).toList();
   try {
@@ -276,12 +282,12 @@ Future<bool> reauthenticateCurrentUser(BuildContext context) async {
       final googleUser = await GoogleSignIn.instance.authenticate();
       final idToken = googleUser.authentication.idToken;
       if (idToken == null) {
-        return false;
+        return DeleteAccountResult.failed;
       }
       await user.reauthenticateWithCredential(
         GoogleAuthProvider.credential(idToken: idToken),
       );
-      return true;
+      return DeleteAccountResult.success;
     }
     if (providers.contains('apple.com')) {
       final rawNonce = _createNonce(32);
@@ -300,43 +306,45 @@ Future<bool> reauthenticateCurrentUser(BuildContext context) async {
         rawNonce: rawNonce,
       );
       await user.reauthenticateWithCredential(credential);
-      return true;
+      return DeleteAccountResult.success;
     }
     if (providers.contains('password')) {
       final email = user.email;
       if (email == null || !context.mounted) {
-        return false;
+        return DeleteAccountResult.failed;
       }
       final password = await _askPassword(context);
       if (password == null || password.isEmpty) {
-        return false;
+        return DeleteAccountResult.canceled;
       }
       await user.reauthenticateWithCredential(
         EmailAuthProvider.credential(email: email, password: password),
       );
-      return true;
+      return DeleteAccountResult.success;
     }
     if (providers.contains('phone')) {
       final phone = user.phoneNumber;
       if (phone == null || !context.mounted) {
-        return false;
+        return DeleteAccountResult.failed;
       }
-      return await _reauthenticatePhone(context, user, phone);
+      return await _reauthenticatePhone(context, user, phone)
+          ? DeleteAccountResult.success
+          : DeleteAccountResult.canceled;
     }
   } on GoogleSignInException catch (e) {
     if (e.code == GoogleSignInExceptionCode.canceled) {
-      return false;
+      return DeleteAccountResult.canceled;
     }
-    return false;
+    return DeleteAccountResult.failed;
   } on SignInWithAppleAuthorizationException catch (e) {
     if (e.code == AuthorizationErrorCode.canceled) {
-      return false;
+      return DeleteAccountResult.canceled;
     }
-    return false;
+    return DeleteAccountResult.failed;
   } catch (_) {
-    return false;
+    return DeleteAccountResult.failed;
   }
-  return false;
+  return DeleteAccountResult.failed;
 }
 
 String _sha256ofString(String input) {

@@ -60,6 +60,13 @@ class PlantTranslation {
         _keepText(stem, null) != null &&
         _keepText(habitat, null) != null;
   }
+
+  bool hasAllBodyFields() {
+    return isTranslated() &&
+        _keepText(toxicity, null) != null &&
+        _keepText(herbalism, null) != null &&
+        _keepText(trivia, null) != null;
+  }
 }
 
 String? _keepText(String? current, String? fallback) {

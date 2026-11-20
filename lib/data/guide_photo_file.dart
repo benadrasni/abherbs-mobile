@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:image/image.dart' as img;
+
+const _photoStripMaxWidth = 2048;
 
 /// `identifyPlant` rejects a base64 image longer than this and never calls
 /// Plant.id. Version 8 kept the upload under it by resizing first.
@@ -84,8 +87,16 @@ int? _jpegWidth(Uint8List bytes) {
 /// the original first.
 Future<Uint8List?> photoWithoutLocation(Uint8List bytes) async {
   try {
-    if (_isJpeg(bytes)) return _jpegWithoutLocation(bytes);
-    return await _jpegFromCodec(bytes);
+    if (_isJpeg(bytes)) {
+      final result = await Isolate.run(() {
+        final cleaned = _jpegWithoutLocation(bytes);
+        if (cleaned == null) return (unchanged: false, bytes: null);
+        if (identical(cleaned, bytes)) return (unchanged: true, bytes: null);
+        return (unchanged: false, bytes: cleaned);
+      });
+      return result.unchanged ? bytes : result.bytes;
+    }
+    return await _jpegFromCodec(bytes, targetWidth: _photoStripMaxWidth);
   } catch (_) {
     return null;
   }
@@ -528,26 +539,33 @@ Future<Uint8List?> _jpegFromCodec(Uint8List bytes, {int? targetWidth}) async {
         format: ui.ImageByteFormat.rawStraightRgba,
       );
       if (raw == null) return null;
-      final pixels = raw.buffer.asUint8List(
-        raw.offsetInBytes,
-        raw.lengthInBytes,
+      final width = image.width;
+      final height = image.height;
+      final pixels = Uint8List.fromList(
+        raw.buffer.asUint8List(raw.offsetInBytes, raw.lengthInBytes),
       );
-      final picture = img.Image.fromBytes(
-        width: image.width,
-        height: image.height,
-        bytes: pixels.buffer,
-        bytesOffset: pixels.offsetInBytes,
-        numChannels: 4,
+      return await Isolate.run(
+        () => _encodeRgbaToJpeg(pixels, width, height),
       );
-      final encoded = img.encodeJpg(picture, quality: 90);
-      if (encoded.length < 4 || encoded[0] != 0xFF || encoded[1] != 0xD8) {
-        return null;
-      }
-      return encoded;
     } finally {
       image.dispose();
     }
   } finally {
     codec.dispose();
   }
+}
+
+Uint8List? _encodeRgbaToJpeg(Uint8List pixels, int width, int height) {
+  final picture = img.Image.fromBytes(
+    width: width,
+    height: height,
+    bytes: pixels.buffer,
+    bytesOffset: pixels.offsetInBytes,
+    numChannels: 4,
+  );
+  final encoded = img.encodeJpg(picture, quality: 90);
+  if (encoded.length < 4 || encoded[0] != 0xFF || encoded[1] != 0xD8) {
+    return null;
+  }
+  return encoded;
 }

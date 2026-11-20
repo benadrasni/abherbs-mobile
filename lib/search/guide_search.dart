@@ -580,18 +580,22 @@ Future<GuideSearchIndex> _fetchGuideSearchIndex(String lang) async {
   final vernacularRef = searchReference.child(lang);
   final latinRef = searchReference.child(languageLatin);
   final taxonomyRef = translationsTaxonomyReference.child(lang);
-  await Future.wait([
-    guideKeepSynced(vernacularRef, true),
-    guideKeepSynced(latinRef, true),
-    guideKeepSynced(apgIVReference, true),
-    guideKeepSynced(taxonomyRef, true),
-  ]);
+  try {
+    await Future.wait([
+      guideKeepSynced(vernacularRef, true),
+      guideKeepSynced(latinRef, true),
+      guideKeepSynced(apgIVReference, true),
+      guideKeepSynced(taxonomyRef, true),
+    ]).timeout(_guideBookWait);
+  } catch (error) {
+    debugPrint('guide search sync: $error');
+  }
   final events = await Future.wait([
     vernacularRef.once(),
     latinRef.once(),
     apgIVReference.once(),
     taxonomyRef.once(),
-  ]);
+  ]).timeout(_guideBookWait);
   return GuideSearchIndex.parse(
     vernacular: events[0].snapshot.value,
     latin: events[1].snapshot.value,

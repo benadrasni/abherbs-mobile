@@ -314,7 +314,10 @@ class Auth {
     _stopEntitlements();
     appUser = null;
     credits = 0;
+    Purchases.hasOldVersion = false;
     Purchases.clearAccountProducts();
+    unawaited(Prefs.setBool(keyOldVersion, false));
+    unawaited(clearPendingStoreProofs());
     await firebaseAuth.signOut();
     _syncAnalytics();
   }

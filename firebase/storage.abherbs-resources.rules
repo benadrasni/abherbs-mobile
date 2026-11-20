@@ -26,20 +26,26 @@ service firebase.storage {
     match /observations/{uid}/{allPaths=**} {
       allow read: if true;
       allow create, update: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
         && request.auth.uid == uid
         && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null && request.auth.uid == uid;
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
+      allow delete: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.auth.uid == uid;
     }
 
     // Field Guide copies. The object key mirrors observations/{uid}/… under
     // private/{uid}/…, including a Latin name that is not in the book.
     match /private/{uid}/{allPaths=**} {
-      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow read, delete: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.auth.uid == uid;
       allow create, update: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
         && request.auth.uid == uid
         && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
     }
   }
 }

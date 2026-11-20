@@ -3,7 +3,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { initializeApp } from 'firebase-admin/app';
 import { getDatabase, type Reference } from 'firebase-admin/database';
 import { logger } from 'firebase-functions';
-import { defineInt, defineSecret } from 'firebase-functions/params';
+import { defineBoolean, defineInt, defineSecret, defineString } from 'firebase-functions/params';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { appleTransaction, verifyAppleSignedPayload } from './apple_jws';
@@ -77,6 +77,8 @@ const dailyCeilingUnlimited = defineInt('DAILY_CEILING_UNLIMITED', { default: 30
 const adGrantsPerMonth = defineInt('AD_GRANTS_PER_MONTH', { default: 5 });
 const anonymousLifetimeCalls = defineInt('ANONYMOUS_LIFETIME_CALLS', { default: 3 });
 const anonymousDailyCeiling = defineInt('ANONYMOUS_DAILY_CEILING', { default: 300 });
+const allowAppleSandbox = defineBoolean('ALLOW_APPLE_SANDBOX', { default: false });
+const admobRewardedAdUnits = defineString('ADMOB_REWARDED_AD_UNITS', { default: '' });
 
 const maxImageChars = 8 * 1024 * 1024;
 const cooldownMs = 5_000;
@@ -100,11 +102,14 @@ async function updateQuota<T>(
   step: (current: QuotaState | null) => { state: QuotaState; value: T },
 ): Promise<T> {
   let value: T | undefined;
-  await ref.transaction((current: QuotaState | null) => {
+  const result = await ref.transaction((current: QuotaState | null) => {
     const next = step(current);
     value = next.value;
     return next.state;
   });
+  if (!result.committed) {
+    throw new HttpsError('aborted', 'quota-contention');
+  }
   return value as T;
 }
 
@@ -157,12 +162,13 @@ export const identifyPlant = onCall(
       });
       if (!free) throw new HttpsError('resource-exhausted', 'sign-in', { reason: 'sign-in' });
       let slot = false;
-      await db.ref(`anonymous_daily/${utcDay(Date.now())}`).transaction((current) => {
+      const shared = await db.ref(`anonymous_daily/${utcDay(Date.now())}`).transaction((current) => {
         const taken = takeSharedSlot(current, anonymousDailyCeiling.value());
         slot = taken.taken;
+        if (!taken.taken) return;
         return taken.value;
       });
-      if (!slot) {
+      if (!shared.committed || !slot) {
         await releaseFree();
         throw new HttpsError('resource-exhausted', 'sign-in', { reason: 'sign-in' });
       }
@@ -282,19 +288,40 @@ export const admobReward = onRequest({ maxInstances: 5 }, async (req, res) => {
   }
   const uid = params.get('user_id') ?? '';
   const transaction = params.get('transaction_id') ?? '';
-  if (!firebaseKey.test(uid) || !firebaseKey.test(transaction)) {
+  const rewardAmount = Number(params.get('reward_amount') ?? '0');
+  const allowedUnits = admobRewardedAdUnits
+    .value()
+    .split(',')
+    .map((unit) => unit.trim())
+    .filter((unit) => unit.length > 0);
+  const adUnit = params.get('ad_unit') ?? '';
+  if (
+    !firebaseKey.test(uid) ||
+    !firebaseKey.test(transaction) ||
+    !Number.isFinite(rewardAmount) ||
+    rewardAmount <= 0 ||
+    (allowedUnits.length > 0 && !allowedUnits.includes(adUnit))
+  ) {
     res.status(200).send('ignored');
     return;
   }
 
   const db = getDatabase();
-  let fresh = false;
-  await db.ref(`ad_rewards/${transaction}`).transaction((current) => {
-    fresh = current === null;
-    return current ?? { uid, at: Date.now() };
+  let duplicate = false;
+  const dedup = await db.ref(`ad_rewards/${transaction}`).transaction((current) => {
+    if (current !== null) {
+      duplicate = true;
+      return;
+    }
+    duplicate = false;
+    return { uid, at: Date.now() };
   });
-  if (!fresh) {
+  if (duplicate) {
     res.status(200).send('duplicate');
+    return;
+  }
+  if (!dedup.committed) {
+    res.status(503).send('retry');
     return;
   }
 
@@ -370,6 +397,9 @@ export const submitPurchase = onCall(
       const payload = verifyAppleSignedPayload(proof, now);
       const transaction = payload ? appleTransaction(payload) : null;
       if (!transaction) throw new HttpsError('invalid-argument', 'proof');
+      if (transaction.environment === 'Sandbox' && !allowAppleSandbox.value()) {
+        throw new HttpsError('invalid-argument', 'sandbox');
+      }
       const issuer = appStoreIssuerId.value();
       const keyId = appStoreKeyId.value();
       const privateKey = appStorePrivateKey.value();
@@ -397,6 +427,9 @@ export const submitPurchase = onCall(
       } catch (error) {
         if (error instanceof StoreUnavailable) throw new HttpsError('unavailable', 'app_store');
         throw error;
+      }
+      if (purchase?.environment === 'Sandbox' && !allowAppleSandbox.value()) {
+        throw new HttpsError('invalid-argument', 'sandbox');
       }
     } else {
       const credentials = playCredentialsOf(playPublisherJson.value());
@@ -452,6 +485,10 @@ export const appleStoreNotification = onRequest({ invoker: 'public' }, async (re
     res.status(200).send('ignored');
     return;
   }
+  if (notice.purchase.environment === 'Sandbox' && !allowAppleSandbox.value()) {
+    res.status(200).send('ignored');
+    return;
+  }
   try {
     await applyVerifiedNotification(entitlementDb(), notice.purchase, Date.now());
   } catch (error) {
@@ -462,7 +499,13 @@ export const appleStoreNotification = onRequest({ invoker: 'public' }, async (re
   res.status(200).send('ok');
 });
 
-export const playStoreNotification = onRequest({ invoker: 'public', secrets: [playPublisherJson] }, async (req, res) => {
+export const playStoreNotification = onRequest(
+  {
+    invoker: 'play-rtdn-push@abherbs-backend.iam.gserviceaccount.com',
+    maxInstances: 5,
+    secrets: [playPublisherJson],
+  },
+  async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).send('method');
     return;
@@ -575,6 +618,7 @@ function revokedProof(proof: {
   expiresAt: number | null;
   accountToken: string | null;
   environment: string | null;
+  subscription: boolean;
 }): VerifiedPurchase {
   return {
     store: proof.store,
@@ -584,6 +628,6 @@ function revokedProof(proof: {
     revoked: true,
     accountToken: proof.accountToken,
     environment: proof.environment,
-    subscription: true,
+    subscription: proof.subscription,
   };
 }

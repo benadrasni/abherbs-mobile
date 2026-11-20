@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:ui' show Locale;
 
 import 'package:abherbs_flutter/person/guide_person.dart';
@@ -123,12 +124,13 @@ Future<PhotoIdentification> identifyPlantPhoto({
     if (bytes == null) {
       throw StateError('photo location could not be removed');
     }
+    final encoded = await Isolate.run(() => base64Encode(bytes));
     final response = await FirebaseFunctions.instance
         .httpsCallable(
       'identifyPlant',
       options: HttpsCallableOptions(timeout: const Duration(seconds: 60)),
     )
-        .call({'image': base64Encode(bytes), 'language': languageCode});
+        .call({'image': encoded, 'language': languageCode});
     final data = jsonDecode(jsonEncode(response.data)) as Map<String, dynamic>;
     _applyMeter(data);
     onCreditsChanged?.call();

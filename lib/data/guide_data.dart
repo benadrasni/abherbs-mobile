@@ -2759,33 +2759,33 @@ Future<PlantTranslation> _guideTranslation(
   String name, {
   Duration wait = _guideIndexWait,
 }) async {
+  var local = PlantTranslation();
   try {
     final snapshot = await guideServerGet(
       translationsReference.child(lang).child(name),
     ).timeout(wait);
     final raw = snapshot.value;
-    final local = raw is Map
-        ? PlantTranslation.fromJson(Map<dynamic, dynamic>.from(raw))
-        : PlantTranslation();
-    if (lang == languageEnglish || local.isTranslated()) return local;
-    try {
-      final english = await guideServerGet(
-        translationsReference.child(languageEnglish).child(name),
-      ).timeout(wait);
-      final fallback = english.value;
-      if (fallback is Map) {
-        local.fillMissingFrom(
-          PlantTranslation.fromJson(Map<dynamic, dynamic>.from(fallback)),
-        );
-      }
-    } catch (error) {
-      debugPrint('guide species english $name: $error');
+    if (raw is Map) {
+      local = PlantTranslation.fromJson(Map<dynamic, dynamic>.from(raw));
     }
-    return local;
   } catch (error) {
     debugPrint('guide species translation $name: $error');
-    return PlantTranslation();
   }
+  if (lang == languageEnglish || local.hasAllBodyFields()) return local;
+  try {
+    final english = await guideServerGet(
+      translationsReference.child(languageEnglish).child(name),
+    ).timeout(wait);
+    final fallback = english.value;
+    if (fallback is Map) {
+      local.fillMissingFrom(
+        PlantTranslation.fromJson(Map<dynamic, dynamic>.from(fallback)),
+      );
+    }
+  } catch (error) {
+    debugPrint('guide species english $name: $error');
+  }
+  return local;
 }
 
 Future<Map<String, String>> _guideVernaculars(

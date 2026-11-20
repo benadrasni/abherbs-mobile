@@ -33,3 +33,13 @@ test('rejects an unsigned callback and an unknown key', async () => {
   assert.equal(await verifyAdmobCallback(message), null);
   assert.equal(await verifyAdmobCallback(signed(message).replace('key_id=42', 'key_id=7')), null);
 });
+
+test('ignores parameters smuggled after signature', async () => {
+  const withoutUser =
+    'ad_network=5450213213286189855&ad_unit=1234&reward_amount=1&reward_item=name' +
+    '&timestamp=1790000000000&transaction_id=abc123';
+  const smuggled = `${signed(withoutUser)}&user_id=attacker`;
+  const params = await verifyAdmobCallback(smuggled);
+  assert.ok(params);
+  assert.equal(params.get('user_id'), null);
+});

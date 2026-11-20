@@ -123,7 +123,7 @@ Future<bool> shareGuideFind(String id) async {
         .set(json);
     await publicObservationsReference
         .child(firebaseObservationsByPlant)
-        .child(plant)
+        .child(guideObservationPlantKey(plant))
         .child(firebaseAttributeList)
         .child(observation.id)
         .set(json);

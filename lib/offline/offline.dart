@@ -87,7 +87,10 @@ class Offline {
     return generation == _generation && !downloadPaused;
   }
 
-  static var _httpClient = HttpClient();
+  static var _httpClient = HttpClient()
+    ..connectionTimeout = const Duration(seconds: 20);
+  static const _httpTimeout = Duration(seconds: 30);
+  static Map<int, GuideMediaStamp>? _stamps;
   static String _rootPath = '';
   static bool _offline = false;
   static bool _downloadDB = false;
@@ -200,7 +203,7 @@ class Offline {
             value,
           );
           await guideKeepSynced(
-            reference.child(firebaseTranslationsTaxonomy).child(language[0]),
+            reference.child(firebaseTranslationsTaxonomy).child(code),
             value,
           );
           if (code != languageEnglish) {
@@ -223,8 +226,9 @@ class Offline {
               keyLanguageAndCountry,
               ['en', 'US'],
             );
+            final code = getLanguageCode(language[0]);
             await guideKeepSynced(
-              reference.child(firebaseSearch).child(language[0]),
+              reference.child(firebaseSearch).child(code),
               false,
             );
           }
@@ -362,7 +366,7 @@ class Offline {
     var finished = alreadyDone;
     for (final id in plantIds) {
       if (!ownsDownload(generation)) return true;
-      if (!await _downloadPlantPhotos(id)) {
+      if (!await _downloadPlantPhotos(id, generation)) {
         if (!ownsDownload(generation)) return true;
         return false;
       }
@@ -392,14 +396,19 @@ class Offline {
     await Prefs.remove(keyGuideOfflineDone);
   }
 
-  static Future<bool> _downloadPlantPhotos(int position) async {
+  static Future<bool> _downloadPlantPhotos(
+    int position,
+    int generation,
+  ) async {
+    if (!ownsDownload(generation)) return false;
     final header = await _plantHeader(position);
-    if (header == null) return false;
+    if (header == null || !ownsDownload(generation)) return false;
     final event = await FirebaseDatabase.instance
         .ref()
         .child(firebasePlants)
         .child(header.name)
         .once();
+    if (!ownsDownload(generation)) return false;
     final value = event.snapshot.value;
     if (value is! Map) return false;
     final plant = Plant.fromJson(event.snapshot.key ?? '', value);
@@ -415,13 +424,16 @@ class Offline {
     if (urls.isEmpty) return false;
     final saved = <GuideMediaFile>[];
     for (final url in urls) {
+      if (!ownsDownload(generation)) return false;
       final optional = url.contains('_distribution.');
       try {
         final bytes = await _downloadBytes(
           storageEndpoint + storagePhotos + url,
           _photoDir(url),
           _photoName(url),
+          shouldWrite: () => ownsDownload(generation),
         );
+        if (!ownsDownload(generation)) return false;
         saved.add(
           GuideMediaFile(
             url: url,
@@ -430,6 +442,7 @@ class Offline {
           ),
         );
       } catch (e) {
+        if (!ownsDownload(generation)) return false;
         if (optional) {
           debugPrint('offline map missing $url');
           continue;
@@ -439,6 +452,7 @@ class Offline {
         return false;
       }
     }
+    if (!ownsDownload(generation)) return false;
     await writeStamp(
       position,
       guideMediaStampFromFiles(
@@ -634,18 +648,38 @@ class Offline {
   static Future<List<int>> _downloadBytes(
     String url,
     String dir,
-    String filename,
-  ) async {
-    var request = await _httpClient.getUrl(Uri.parse(url));
-    var response = await request.close();
+    String filename, {
+    bool Function()? shouldWrite,
+  }) async {
+    final request = await _httpClient.getUrl(Uri.parse(url)).timeout(_httpTimeout);
+    final response = await request.close().timeout(_httpTimeout);
     if (response.statusCode != 200) {
-      await response.drain();
+      await response.drain().timeout(_httpTimeout, onTimeout: () {});
       throw HttpException('HTTP ${response.statusCode} for $url');
     }
-    var bytes = await consolidateHttpClientResponseBytes(response);
+    final bytes =
+        await consolidateHttpClientResponseBytes(response).timeout(_httpTimeout);
+    if (shouldWrite != null && !shouldWrite()) return bytes;
     await _ensureRoot();
-    await Directory('$_rootPath/$dir').create(recursive: true);
-    await File('$_rootPath/$dir/$filename').writeAsBytes(bytes);
+    final folder = Directory('$_rootPath/$dir');
+    await folder.create(recursive: true);
+    final targetPath = '$_rootPath/$dir/$filename';
+    final temp = File('$targetPath.tmp');
+    try {
+      await temp.writeAsBytes(bytes, flush: true);
+      if (shouldWrite != null && !shouldWrite()) {
+        if (await temp.exists()) await temp.delete();
+        return bytes;
+      }
+      await temp.rename(targetPath);
+    } catch (_) {
+      if (await temp.exists()) {
+        try {
+          await temp.delete();
+        } catch (_) {}
+      }
+      rethrow;
+    }
     return bytes;
   }
 
@@ -667,10 +701,17 @@ class Offline {
   }
 
   static Future<Map<int, GuideMediaStamp>> readStamps() async {
+    final cached = _stamps;
+    if (cached != null) return Map<int, GuideMediaStamp>.from(cached);
     try {
       final file = await _stampFile();
-      if (!await file.exists()) return {};
-      return decodeGuideStamps(await file.readAsString());
+      if (!await file.exists()) {
+        _stamps = <int, GuideMediaStamp>{};
+        return {};
+      }
+      final decoded = decodeGuideStamps(await file.readAsString());
+      _stamps = Map<int, GuideMediaStamp>.from(decoded);
+      return decoded;
     } catch (error) {
       debugPrint('offline stamps: $error');
       return {};
@@ -678,13 +719,17 @@ class Offline {
   }
 
   static Future<void> writeStamp(int id, GuideMediaStamp stamp) async {
-    final stamps = await readStamps();
+    final stamps = _stamps ?? await readStamps();
     stamps[id] = stamp;
+    _stamps = stamps;
     final file = await _stampFile();
-    await file.writeAsString(encodeGuideStamps(stamps));
+    final temp = File('${file.path}.tmp');
+    await temp.writeAsString(encodeGuideStamps(stamps), flush: true);
+    await temp.rename(file.path);
   }
 
   static Future<void> clearStamps() async {
+    _stamps = null;
     try {
       final file = await _stampFile();
       if (await file.exists()) await file.delete();

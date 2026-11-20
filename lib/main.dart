@@ -326,7 +326,9 @@ class _AppState extends State<App> {
       var languageCountry = language.split('_');
       setState(() {
         translationCache = {};
-        _locale = Locale(languageCountry[0], languageCountry[1]);
+        _locale = languageCountry.length > 1
+            ? Locale(languageCountry[0], languageCountry[1])
+            : Locale(languageCountry[0]);
       });
     }
 
@@ -350,10 +352,12 @@ class _AppState extends State<App> {
           reason: 'store',
         ));
       }
-      if (owned) unawaited(_confirmPurchase(purchase));
-      // Finish here, not on the sales page. A purchase that arrives after
-      // that page has closed still has to be acknowledged.
-      if (purchase.pendingCompletePurchase) {
+      if (owned) {
+        unawaited(_confirmPurchase(purchase));
+      } else if (purchase.pendingCompletePurchase) {
+        // Finish non-owned events (e.g. error/canceled) immediately.
+        // Owned purchases finish inside _confirmPurchase after submitStorePurchase
+        // has either verified or durably stored the proof.
         unawaited(_completePurchase(purchase));
       }
     }
@@ -361,6 +365,9 @@ class _AppState extends State<App> {
 
   Future<void> _confirmPurchase(PurchaseDetails purchase) async {
     final outcome = await submitStorePurchase(purchase);
+    if (purchase.pendingCompletePurchase) {
+      unawaited(_completePurchase(purchase));
+    }
     final id = purchase.productID;
     final confirmed = outcome.result == StoreProofResult.accepted &&
         outcome.products[id] == true;
@@ -425,7 +432,9 @@ class _AppState extends State<App> {
       if (action.isNotEmpty && _navigatorKey.currentContext != null) {
         switch (action) {
           case notificationAttributeActionList:
-            String path = message.data[notificationAttributePath];
+            final path =
+                message.data[notificationAttributePath]?.toString() ?? '';
+            if (path.isEmpty) return Future.value(null);
             final openNew = notificationPathOpensNewInBook(path);
             return notificationPopup(
               _navigatorKey.currentContext!,
@@ -465,7 +474,9 @@ class _AppState extends State<App> {
               }
             });
           case notificationAttributeActionBrowse:
-            String uri = message.data[notificationAttributeUri];
+            final uri =
+                message.data[notificationAttributeUri]?.toString() ?? '';
+            if (uri.isEmpty) return Future.value(null);
             return notificationPopup(
               _navigatorKey.currentContext!,
               notificationTitle(message),
@@ -577,14 +588,16 @@ class _AppState extends State<App> {
       } else {
         switch (action) {
           case notificationAttributeActionBrowse:
-            String uri = notificationData[notificationAttributeUri];
+            final uri =
+                notificationData[notificationAttributeUri]?.toString() ?? '';
             if (uri.isNotEmpty) {
               launchURL(uri);
               return null;
             }
             return null;
           case notificationAttributeActionList:
-            String path = notificationData[notificationAttributePath];
+            final path =
+                notificationData[notificationAttributePath]?.toString() ?? '';
             if (path.isNotEmpty && notificationPathOpensNewInBook(path)) {
               return Future<MaterialPageRoute<dynamic>>.value(
                   guideNewInBookRoute());
