@@ -167,32 +167,82 @@ class _StartupState extends State<_Startup>
   }
 
   Future<void> _open() async {
+    var crashlyticsReady = false;
+    void recordError(Object error, StackTrace stackTrace) {
+      if (crashlyticsReady) {
+        FirebaseCrashlytics.instance.recordError(error, stackTrace);
+      } else {
+        debugPrint('startup: $error');
+      }
+    }
+
+    Future<void> runStep(Future<void> Function() step) async {
+      try {
+        await step();
+      } catch (error, stackTrace) {
+        recordError(error, stackTrace);
+      }
+    }
+
     try {
       await initializeFlutterFire();
-      await GuideAnalytics.start();
+      crashlyticsReady = true;
+    } catch (error, stackTrace) {
+      recordError(error, stackTrace);
+    }
+
+    await runStep(() => GuideAnalytics.start());
+    await runStep(() async {
       WakelockPlus.enable();
-      await Prefs.init();
-      await applyRememberedVersionBlock();
-      unawaited(Auth.startGuest());
-      final umpFailed = await gatherAdConsent();
-      final tracking =
-          await AppTrackingTransparency.requestTrackingAuthorization();
-      await setMetaAdvertiserTracking(tracking == TrackingStatus.authorized);
-      await applyAnalyticsConsent(
+    });
+    await runStep(() => Prefs.init());
+    await runStep(() => applyRememberedVersionBlock());
+    if (crashlyticsReady) {
+      unawaited(Auth.startGuest().catchError((Object error, StackTrace stack) {
+        recordError(error, stack);
+      }));
+    }
+
+    var umpFailed = true;
+    await runStep(() async {
+      umpFailed = await gatherAdConsent();
+    });
+
+    var tracking = TrackingStatus.notDetermined;
+    await runStep(() async {
+      tracking = await AppTrackingTransparency.requestTrackingAuthorization()
+          .timeout(const Duration(seconds: 15),
+              onTimeout: () => TrackingStatus.notDetermined);
+    });
+
+    await runStep(
+      () => setMetaAdvertiserTracking(tracking == TrackingStatus.authorized),
+    );
+    await runStep(
+      () => applyAnalyticsConsent(
         umpFailed: umpFailed,
         trackingAuthorized:
             !Platform.isIOS || tracking == TrackingStatus.authorized,
-      );
-      await MobileAds.instance.initialize();
-      final locale = await initializeLocale();
-      if (!mounted) return;
-      setState(() => _locale = locale);
-      await _cover.reverse();
-      if (!mounted) return;
-      setState(() => _coverOn = false);
+      ),
+    );
+    await runStep(
+      () => MobileAds.instance
+          .initialize()
+          .timeout(const Duration(seconds: 15)),
+    );
+
+    Locale locale;
+    try {
+      locale = await initializeLocale();
     } catch (error, stackTrace) {
-      FirebaseCrashlytics.instance.recordError(error, stackTrace);
+      recordError(error, stackTrace);
+      locale = getDeviceLocale();
     }
+    if (!mounted) return;
+    setState(() => _locale = locale);
+    await _cover.reverse();
+    if (!mounted) return;
+    setState(() => _coverOn = false);
   }
 
   @override
@@ -336,8 +386,24 @@ class _AppState extends State<App> {
       productId: id,
       reason: 'rejected',
     ));
+    _showPurchaseFailedToast();
+  }
+
+  void _showPurchaseFailedToast() {
+    String? message;
+    final navContext = _navigatorKey.currentContext;
+    if (navContext != null) {
+      message = S.maybeOf(navContext)?.product_purchase_failed;
+    }
+    if (message == null) {
+      try {
+        message = S.current.product_purchase_failed;
+      } catch (_) {
+        return;
+      }
+    }
     Fluttertoast.showToast(
-      msg: S.of(context).product_purchase_failed,
+      msg: message,
       toastLength: Toast.LENGTH_LONG,
       gravity: ToastGravity.BOTTOM,
       timeInSecForIosWeb: 5,
@@ -584,11 +650,7 @@ class _AppState extends State<App> {
     }, onError: (error) {
       unawaited(GuideAnalytics.purchaseFailed(reason: 'stream'));
       if (mounted) {
-        Fluttertoast.showToast(
-            msg: S.of(context).product_purchase_failed,
-            toastLength: Toast.LENGTH_LONG,
-            gravity: ToastGravity.BOTTOM,
-            timeInSecForIosWeb: 5);
+        _showPurchaseFailedToast();
       }
     });
     initStoreInfo();

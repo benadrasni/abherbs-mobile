@@ -28,6 +28,7 @@ export function verifiedApple(transaction: AppleTransaction): VerifiedPurchase {
     token: transaction.originalTransactionId,
     expiresAt: transaction.expiresAt,
     revoked: transaction.revoked,
+    signedDate: transaction.signedDate,
     accountToken: transaction.appAccountToken,
     environment: transaction.environment,
     subscription: subscriptionProducts.has(transaction.productId),
@@ -117,12 +118,52 @@ export async function fetchAppleSubscription(
       const payload = verifyAppleSignedPayload(jws, now);
       if (!payload) continue;
       const transaction = appleTransaction(payload);
-      if (!transaction) continue;
+      if (!transaction || transaction.originalTransactionId !== originalTransactionId) continue;
       const purchase = verifiedApple(transaction);
       if (!best || (purchase.expiresAt ?? 0) >= (best.expiresAt ?? 0)) best = purchase;
     }
     if (!best) throw new StoreUnavailable('app store signature');
     return { status: 'verified', purchase: best };
+  }
+  if (sawUnknown) return { status: 'unknown' };
+  throw new StoreUnavailable('app store');
+}
+
+/// Current single-transaction state (including revocations) from the App Store Server API.
+export async function fetchAppleTransaction(
+  transactionId: string,
+  environment: string | null,
+  credentials: AppStoreCredentials,
+  now: number,
+  fetchImpl: FetchImpl,
+): Promise<StoreFetch> {
+  if (!/^[0-9]{1,32}$/.test(transactionId)) return { status: 'unknown' };
+  const bearer = appStoreToken(credentials, now);
+  let sawUnknown = false;
+  for (const host of hosts(environment)) {
+    let response: Response;
+    try {
+      response = await fetchImpl(
+        `${host}/inApps/v1/transactions/${transactionId}`,
+        { headers: { Authorization: `Bearer ${bearer}` } },
+      );
+    } catch {
+      throw new StoreUnavailable('app store unreachable');
+    }
+    if (response.status === 404) {
+      sawUnknown = true;
+      continue;
+    }
+    if (!response.ok) throw new StoreUnavailable(`app store ${response.status}`);
+    const body = (await response.json()) as { signedTransactionInfo?: unknown };
+    const signed = body?.signedTransactionInfo;
+    if (typeof signed !== 'string' || signed.length === 0) {
+      throw new StoreUnavailable('app store body');
+    }
+    const payload = verifyAppleSignedPayload(signed, now);
+    const transaction = payload ? appleTransaction(payload) : null;
+    if (!transaction) throw new StoreUnavailable('app store signature');
+    return { status: 'verified', purchase: verifiedApple(transaction) };
   }
   if (sawUnknown) return { status: 'unknown' };
   throw new StoreUnavailable('app store');

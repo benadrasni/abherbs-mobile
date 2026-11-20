@@ -112,8 +112,10 @@ function transaction(): Record<string, unknown> {
   return {
     bundleId: 'sk.ab.herbs',
     productId: 'field_guide_yearly',
+    transactionId: '1001',
     originalTransactionId: '1000',
     expiresDate: now + 1000,
+    signedDate: now - 500,
     environment: 'Sandbox',
   };
 }
@@ -126,7 +128,10 @@ test('a chained StoreKit transaction verifies and a changed payload does not', (
   const signed = jws(transaction(), [leafPem, intermediatePem, rootPem], leafKey);
   const payload = verifyAppleSignedPayload(signed, now, rootPem);
   assert.ok(payload);
-  assert.equal(appleTransaction(payload)?.productId, 'field_guide_yearly');
+  const parsed = appleTransaction(payload);
+  assert.equal(parsed?.productId, 'field_guide_yearly');
+  assert.equal(parsed?.transactionId, '1001');
+  assert.equal(parsed?.signedDate, now - 500);
   assert.equal(appleTransaction({ ...payload, bundleId: 'other.app' }), null);
 
   const parts = signed.split('.');

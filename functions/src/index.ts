@@ -20,6 +20,7 @@ import {
 } from './store_handlers';
 import {
   fetchAppleSubscription,
+  fetchAppleTransaction,
   fetchPlayPurchase,
   playBearer,
   playCredentialsOf,
@@ -345,7 +346,10 @@ function signedInUid(uid: string | undefined, provider: string | undefined): str
  * Play real-time notifications: `playStoreNotification`.
  */
 export const submitPurchase = onCall(
-  { enforceAppCheck: true, secrets: [playPublisherJson] },
+  {
+    enforceAppCheck: true,
+    secrets: [playPublisherJson, appStoreIssuerId, appStoreKeyId, appStorePrivateKey],
+  },
   async (request) => {
     const uid = signedInUid(request.auth?.uid, request.auth?.token.firebase?.sign_in_provider);
     const store = request.data?.store;
@@ -365,7 +369,35 @@ export const submitPurchase = onCall(
     if (store === 'app_store') {
       const payload = verifyAppleSignedPayload(proof, now);
       const transaction = payload ? appleTransaction(payload) : null;
-      purchase = transaction ? verifiedApple(transaction) : null;
+      if (!transaction) throw new HttpsError('invalid-argument', 'proof');
+      const issuer = appStoreIssuerId.value();
+      const keyId = appStoreKeyId.value();
+      const privateKey = appStorePrivateKey.value();
+      if (!issuer || !keyId || !privateKey) {
+        throw new HttpsError('failed-precondition', 'app_store');
+      }
+      const credentials: AppStoreCredentials = { issuerId: issuer, keyId, privateKey };
+      try {
+        const fetched = subscriptionProducts.has(transaction.productId)
+          ? await fetchAppleSubscription(
+              transaction.originalTransactionId,
+              transaction.environment,
+              credentials,
+              now,
+              fetch,
+            )
+          : await fetchAppleTransaction(
+              transaction.transactionId ?? transaction.originalTransactionId,
+              transaction.environment,
+              credentials,
+              now,
+              fetch,
+            );
+        purchase = fetched.status === 'verified' ? fetched.purchase : null;
+      } catch (error) {
+        if (error instanceof StoreUnavailable) throw new HttpsError('unavailable', 'app_store');
+        throw error;
+      }
     } else {
       const credentials = playCredentialsOf(playPublisherJson.value());
       if (!credentials) throw new HttpsError('failed-precondition', 'play');

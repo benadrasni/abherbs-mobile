@@ -611,6 +611,97 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+      'a signed-out tap on Start or Restore asks for sign-in before buying',
+      (tester) async {
+    tester.view.physicalSize = const Size(420, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var signedIn = false;
+    var signInCalls = 0;
+    var buyCalls = 0;
+    var restoreCalls = 0;
+
+    await tester.pumpWidget(_app(GuideFieldGuidePage(
+      key: const ValueKey('cancel'),
+      load: () async => GuideFieldGuideLoaded(catalog: _priced()),
+      signedIn: () => signedIn,
+      signIn: (_) async {
+        signInCalls++;
+      },
+      buy: (_) async {
+        buyCalls++;
+        return true;
+      },
+      restore: () async {
+        restoreCalls++;
+      },
+      plate: (_) => const ColoredBox(color: Color(0xFFEFE6D3)),
+    )));
+    await tester.pumpAndSettle();
+
+    // Canceled sign-in does not start a purchase or restore.
+    await tester.tap(find.byKey(guideFieldGuideStartKey));
+    await tester.pumpAndSettle();
+    expect(signInCalls, 1);
+    expect(buyCalls, 0);
+
+    await tester.tap(find.byKey(guideFieldGuideRestoreKey));
+    await tester.pumpAndSettle();
+    expect(signInCalls, 2);
+    expect(restoreCalls, 0);
+
+    // Completing sign-in proceeds to purchase when the account does not own it.
+    await tester.pumpWidget(_app(GuideFieldGuidePage(
+      key: const ValueKey('proceed'),
+      load: () async => GuideFieldGuideLoaded(catalog: _priced()),
+      signedIn: () => signedIn,
+      signIn: (_) async {
+        signInCalls++;
+        signedIn = true;
+      },
+      buy: (_) async {
+        buyCalls++;
+        return true;
+      },
+      restore: () async {
+        restoreCalls++;
+      },
+      plate: (_) => const ColoredBox(color: Color(0xFFEFE6D3)),
+    )));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(guideFieldGuideStartKey));
+    await tester.pumpAndSettle();
+    expect(signInCalls, 3);
+    expect(buyCalls, 1);
+
+    // Signing in to an account that already owns Field Guide skips buying.
+    signedIn = false;
+    await tester.pumpWidget(_app(GuideFieldGuidePage(
+      key: const ValueKey('alreadyOwned'),
+      load: () async => GuideFieldGuideLoaded(catalog: _priced()),
+      signedIn: () => signedIn,
+      signIn: (_) async {
+        signInCalls++;
+        signedIn = true;
+        Purchases.replaceAccountProducts({fieldGuideYearly});
+      },
+      buy: (_) async {
+        buyCalls++;
+        return true;
+      },
+      plate: (_) => const ColoredBox(color: Color(0xFFEFE6D3)),
+    )));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(guideFieldGuideStartKey));
+    await tester.pumpAndSettle();
+    expect(signInCalls, 4);
+    expect(buyCalls, 1);
+  });
 }
 
 GuideFieldGuideCatalog _priced() {

@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:abherbs_flutter/generated/l10n.dart';
 import 'package:abherbs_flutter/data/guide_data.dart';
 import 'package:abherbs_flutter/field_guide/guide_field_guide.dart';
+import 'package:abherbs_flutter/person/authentication.dart';
+import 'package:abherbs_flutter/person/sign_in_page.dart';
 import 'package:abherbs_flutter/shell/guide_theme.dart';
 import 'package:abherbs_flutter/shell/guide_widgets.dart';
 import 'package:abherbs_flutter/purchase/purchases.dart';
@@ -34,6 +36,8 @@ class GuideFieldGuidePage extends StatefulWidget {
   final Future<GuideFieldGuideLoaded> Function()? load;
   final Future<bool> Function(GuideFieldGuidePlan plan)? buy;
   final Future<void> Function()? restore;
+  final bool Function()? signedIn;
+  final Future<void> Function(BuildContext context)? signIn;
   final WidgetBuilder? plate;
   final GuideAppearance? appearance;
   final Duration storeTimeout;
@@ -43,6 +47,8 @@ class GuideFieldGuidePage extends StatefulWidget {
     this.load,
     this.buy,
     this.restore,
+    this.signedIn,
+    this.signIn,
     this.plate,
     this.appearance,
     this.storeTimeout = guideFieldGuideStoreTimeout,
@@ -182,6 +188,22 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
     return catalog.initialPlan;
   }
 
+  bool _isSignedIn() {
+    final check = widget.signedIn;
+    if (check != null) return check();
+    if (widget.buy != null || widget.restore != null) return true;
+    return Auth.appUser != null;
+  }
+
+  Future<bool> _ensureSignedIn() async {
+    if (_isSignedIn()) return true;
+    await (widget.signIn ?? openGuideSignIn)(context);
+    if (!mounted) return false;
+    _applyOwned();
+    setState(() {});
+    return _isSignedIn();
+  }
+
   Future<void> _start() async {
     final loaded = _loaded;
     if (loaded == null || _busy) return;
@@ -190,6 +212,17 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
     if (access.locked || offer.owned || offer.price == null) return;
     if (!access.upgrade &&
         (loaded.catalog.coveredByOlderPlan ||
+            Purchases.fieldGuideFromAccountOnly)) {
+      return;
+    }
+    if (!await _ensureSignedIn()) return;
+    final current = _loaded;
+    if (current == null || !mounted) return;
+    final nextAccess = _access(current.catalog);
+    final nextOffer = current.catalog.offer(_plan);
+    if (nextAccess.locked || nextOffer.owned || nextOffer.price == null) return;
+    if (!nextAccess.upgrade &&
+        (current.catalog.coveredByOlderPlan ||
             Purchases.fieldGuideFromAccountOnly)) {
       return;
     }
@@ -227,6 +260,7 @@ class _GuideFieldGuidePageState extends State<GuideFieldGuidePage> {
   }
 
   Future<void> _restore() async {
+    if (!await _ensureSignedIn()) return;
     final custom = widget.restore;
     if (custom != null) {
       await custom();

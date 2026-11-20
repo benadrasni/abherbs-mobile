@@ -300,3 +300,58 @@ test('two concurrent claims of a token-less receipt cannot both win', async () =
   const other = owner === uid ? 'user-2' : uid;
   assert.equal(users[other]?.entitlements, undefined);
 });
+
+test('replaying a pre-refund JWS cannot restore a revoked one-time purchase or subscription', async () => {
+  const db = memoryDb();
+  const oneTime: VerifiedPurchase = {
+    store: 'app_store',
+    productId: 'search_by_photo',
+    token: '3000',
+    expiresAt: null,
+    revoked: false,
+    signedDate: now - 10_000,
+    accountToken: token,
+    environment: 'Production',
+    subscription: false,
+  };
+  const granted = await grantPurchase(db, uid, oneTime, now);
+  assert.equal('products' in granted && granted.products.search_by_photo, true);
+
+  const refunded = await grantPurchase(
+    db,
+    uid,
+    { ...oneTime, revoked: true, signedDate: now },
+    now,
+  );
+  assert.equal('products' in refunded && refunded.products.search_by_photo, false);
+
+  // Replay of the pre-refund JWS (older signedDate) is rejected.
+  const replayed = await grantPurchase(db, uid, oneTime, now + 1000);
+  assert.deepEqual(replayed, { error: 'invalid' });
+
+  // Even a replay with no signedDate cannot un-revoke a one-time purchase.
+  const replayedNoDate = await grantPurchase(
+    db,
+    uid,
+    { ...oneTime, signedDate: null },
+    now + 2000,
+  );
+  assert.deepEqual(replayedNoDate, { error: 'invalid' });
+
+  // Subscription: replay of pre-refund JWS is rejected, but a newer renewal succeeds.
+  const subFirst = yearly({ token: '4000', signedDate: now - 10_000 });
+  assert.equal('products' in (await grantPurchase(db, uid, subFirst, now)), true);
+  assert.equal(
+    'products' in (await grantPurchase(db, uid, { ...subFirst, revoked: true, signedDate: now }, now)),
+    true,
+  );
+  assert.deepEqual(await grantPurchase(db, uid, subFirst, now + 1000), { error: 'invalid' });
+
+  const renewed = await grantPurchase(
+    db,
+    uid,
+    { ...subFirst, signedDate: now + 5000, expiresAt: now + 172_800_000 },
+    now + 5000,
+  );
+  assert.equal('products' in renewed && renewed.products.field_guide_yearly, true);
+});

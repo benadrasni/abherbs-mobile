@@ -169,9 +169,11 @@ export function verifyAppleSignedPayload(
 
 export type AppleTransaction = {
   productId: string;
+  transactionId: string | null;
   originalTransactionId: string;
   expiresAt: number | null;
   revoked: boolean;
+  signedDate: number | null;
   appAccountToken: string | null;
   environment: string | null;
 };
@@ -184,11 +186,28 @@ export function appleTransaction(payload: Record<string, unknown>): AppleTransac
   if (typeof originalTransactionId !== 'string' || !/^[0-9]{1,32}$/.test(originalTransactionId)) {
     return null;
   }
+  const transactionId =
+    typeof payload.transactionId === 'string' && /^[0-9]{1,32}$/.test(payload.transactionId)
+      ? payload.transactionId
+      : null;
   const expiresAt = typeof payload.expiresDate === 'number' ? payload.expiresDate : null;
   const revoked = typeof payload.revocationDate === 'number';
+  const signedDate =
+    typeof payload.signedDate === 'number' && Number.isFinite(payload.signedDate)
+      ? payload.signedDate
+      : null;
   const appAccountToken = typeof payload.appAccountToken === 'string' ? payload.appAccountToken : null;
   const environment = typeof payload.environment === 'string' ? payload.environment : null;
-  return { productId, originalTransactionId, expiresAt, revoked, appAccountToken, environment };
+  return {
+    productId,
+    transactionId,
+    originalTransactionId,
+    expiresAt,
+    revoked,
+    signedDate,
+    appAccountToken,
+    environment,
+  };
 }
 
 export function signedTransactionsFromStatus(body: unknown): string[] {

@@ -36,6 +36,7 @@ export type VerifiedPurchase = {
   token: string;
   expiresAt: number | null;
   revoked: boolean;
+  signedDate?: number | null;
   accountToken: string | null;
   environment: string | null;
   subscription: boolean;
@@ -59,6 +60,8 @@ export type ProofRecord = {
   environment: string | null;
   subscription: boolean;
   active: boolean;
+  revoked?: boolean;
+  signedDate?: number | null;
   updatedAt: number;
 };
 
@@ -94,8 +97,14 @@ function row(purchase: VerifiedPurchase, key: string, active: boolean, now: numb
   return value;
 }
 
-function proofRecord(uid: string, purchase: VerifiedPurchase, active: boolean, now: number): ProofRecord {
-  return {
+function proofRecord(
+  uid: string,
+  purchase: VerifiedPurchase,
+  active: boolean,
+  now: number,
+  previousSignedDate: number | null,
+): ProofRecord {
+  const record: ProofRecord = {
     uid,
     store: purchase.store,
     productId: purchase.productId,
@@ -105,8 +114,12 @@ function proofRecord(uid: string, purchase: VerifiedPurchase, active: boolean, n
     environment: purchase.environment,
     subscription: purchase.subscription,
     active,
+    revoked: purchase.revoked,
     updatedAt: now,
   };
+  const signedDate = purchase.signedDate ?? previousSignedDate;
+  if (signedDate != null) record.signedDate = signedDate;
+  return record;
 }
 
 /**
@@ -136,16 +149,42 @@ export function planGrant(input: {
   if (existing && existing.uid !== input.uid && input.previousOwnerExists) {
     return { error: 'other-account' };
   }
+  if (existing && existing.store === input.purchase.store) {
+    if (
+      existing.signedDate != null &&
+      input.purchase.signedDate != null &&
+      input.purchase.signedDate < existing.signedDate
+    ) {
+      return { error: 'invalid' };
+    }
+    if (existing.revoked === true && !input.purchase.revoked) {
+      if (!input.purchase.subscription) {
+        return { error: 'invalid' };
+      }
+      const newerSigned =
+        existing.signedDate != null &&
+        input.purchase.signedDate != null &&
+        input.purchase.signedDate > existing.signedDate;
+      const laterExpiry =
+        input.purchase.expiresAt != null &&
+        (existing.expiresAt == null || input.purchase.expiresAt > existing.expiresAt);
+      if (!newerSigned && !laterExpiry) {
+        return { error: 'invalid' };
+      }
+    }
+  }
   const active = purchaseActive(input.purchase, input.now);
   const current = input.products[input.purchase.productId];
   const heldByOther =
     !active &&
     current?.active === true &&
     current.originalId !== key;
+  const previousSignedDate =
+    existing && existing.store === input.purchase.store ? existing.signedDate ?? null : null;
   const writes: StoreWrite[] = [
     {
       path: `purchase_proofs/${key}`,
-      value: proofRecord(input.uid, input.purchase, active, input.now),
+      value: proofRecord(input.uid, input.purchase, active, input.now, previousSignedDate),
     },
   ];
   if (existing && existing.uid !== input.uid) {
@@ -229,7 +268,7 @@ export function proofRecordOf(value: unknown): ProofRecord | null {
     return null;
   }
   if (record.store !== 'app_store' && record.store !== 'play') return null;
-  return {
+  const result: ProofRecord = {
     uid: record.uid,
     store: record.store,
     productId: record.productId,
@@ -239,8 +278,13 @@ export function proofRecordOf(value: unknown): ProofRecord | null {
     environment: typeof record.environment === 'string' ? record.environment : null,
     subscription: record.subscription === true,
     active: record.active === true,
+    revoked: record.revoked === true,
     updatedAt: typeof record.updatedAt === 'number' ? record.updatedAt : 0,
   };
+  if (typeof record.signedDate === 'number' && Number.isFinite(record.signedDate)) {
+    result.signedDate = record.signedDate;
+  }
+  return result;
 }
 
 function rowStillActive(id: string, row: EntitlementRow, now: number): boolean {
