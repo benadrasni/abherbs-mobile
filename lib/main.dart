@@ -579,6 +579,11 @@ class _AppState extends State<App> {
     }
     MaterialPageRoute<dynamic>? redirect = await findRedirectF(message.data);
     if (redirect != null && _navigatorKey.currentContext != null) {
+      // A frozen process can still report the socket as up. The species
+      // page opens a new one before it reads.
+      if (action == notificationAttributeActionPlant) {
+        guideDatabaseReconnectOnNextRead();
+      }
       Navigator.push(_navigatorKey.currentContext!, redirect);
     }
   }
