@@ -190,10 +190,16 @@ class _GuideOutsidePageState extends State<GuideOutsidePage> {
         todayLabel: strings.guide_outside_just_now,
       ),
       expand: window.wide,
-      onClose: () => Navigator.pop(
-        context,
-        const GuideOutsideResult.find(),
-      ),
+      onClose: () async {
+        try {
+          await _saved;
+        } catch (_) {}
+        if (!context.mounted) return;
+        Navigator.pop(
+          context,
+          const GuideOutsideResult.find(),
+        );
+      },
     );
     final text = <Widget>[
           Padding(

@@ -213,20 +213,41 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
     unawaited(ReviewPrompt.note(stillHere: _reviewStillHere));
   }
 
+  GuideResultList? _cachedArranged;
+  List<GuideResultPlant>? _arrangedPlants;
+  int? _arrangedMonth;
+  bool? _arrangedWildOnly;
+  int _listTicket = 0;
+
   GuideResultList get _arranged {
-    return arrangeGuideResults(
-      _plants ?? const [],
+    final plants = _plants ?? const [];
+    final wildOnly = _isList ? false : _prefs.wildOnly;
+    final cached = _cachedArranged;
+    if (cached != null &&
+        identical(_arrangedPlants, plants) &&
+        _arrangedMonth == _month &&
+        _arrangedWildOnly == wildOnly) {
+      return cached;
+    }
+    final next = arrangeGuideResults(
+      plants,
       month: _month,
-      wildOnly: _isList ? false : _prefs.wildOnly,
+      wildOnly: wildOnly,
     );
+    _cachedArranged = next;
+    _arrangedPlants = plants;
+    _arrangedMonth = _month;
+    _arrangedWildOnly = wildOnly;
+    return next;
   }
 
   Future<void> _load() async {
     final ticket = ++_ticket;
+    final listTicket = ++_listTicket;
     if (_isList) {
       if (mounted) setState(() => _prefsReady = true);
       await Future.wait([
-        _loadList(null, ticket),
+        _loadList(null, listTicket),
         _loadSeen(ticket),
       ]);
       return;
@@ -239,7 +260,7 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
         _prefsReady = true;
       });
       await Future.wait([
-        _loadList(prefs.regionId, ticket),
+        _loadList(prefs.regionId, listTicket),
         _loadSeen(ticket),
         _loadCounts(ticket),
       ]);
@@ -254,14 +275,14 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
     }
   }
 
-  Future<void> _loadList(String? regionId, int ticket) async {
+  Future<void> _loadList(String? regionId, int listTicket) async {
     setState(() {
       _loading = true;
       _failed = false;
     });
     try {
       final plants = await widget.loadResults(regionId);
-      if (!mounted || ticket != _ticket) return;
+      if (!mounted || listTicket != _listTicket) return;
       setState(() {
         _plants = plants;
         _loading = false;
@@ -282,7 +303,7 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
       }
     } catch (error) {
       debugPrint('guide results list: $error');
-      if (!mounted || ticket != _ticket) return;
+      if (!mounted || listTicket != _listTicket) return;
       setState(() {
         _loading = false;
         _failed = _plants == null;
@@ -316,8 +337,8 @@ class _GuideResultsPageState extends State<GuideResultsPage> {
   }
 
   Future<void> _reload(String? regionId) async {
-    final ticket = ++_ticket;
-    await _loadList(regionId, ticket);
+    final listTicket = ++_listTicket;
+    await _loadList(regionId, listTicket);
   }
 
   void _remember(GuideResultPrefs prefs) {

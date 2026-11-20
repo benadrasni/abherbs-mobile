@@ -352,53 +352,53 @@ void launchURL(String path) async {
   }
 }
 
-double getLatitudeFromExif(IfdTag? latitudeRef, IfdTag? latitude) {
-  if (latitude != null) {
-    double latDegrees = latitude.values.toList()[0].numerator /
-        latitude.values.toList()[0].denominator;
-    double latMinutes = latitude.values.toList()[1].numerator /
-        latitude.values.toList()[1].denominator;
-    double latSeconds = latitude.values.toList()[2].numerator /
-        latitude.values.toList()[2].denominator;
+double _exifCoordinate(IfdTag? tag, IfdTag? ref, String positiveRef) {
+  if (tag == null) return 0.0;
+  final values = tag.values.toList();
+  if (values.length < 3) return 0.0;
+  final d0 = values[0].denominator;
+  final d1 = values[1].denominator;
+  final d2 = values[2].denominator;
+  if (d0 == 0 || d1 == 0 || d2 == 0) return 0.0;
+  final degrees = values[0].numerator / d0;
+  final minutes = values[1].numerator / d1;
+  final seconds = values[2].numerator / d2;
+  final value = degrees + minutes / 60 + seconds / 3600;
+  if (!value.isFinite) return 0.0;
+  final sign = ref?.toString() == positiveRef ? 1.0 : -1.0;
+  return sign * value;
+}
 
-    int northSouth = latitudeRef.toString() == 'N' ? 1 : -1;
-    return northSouth * (latDegrees + latMinutes / 60 + latSeconds / 60 / 60);
-  } else {
-    return 0.0;
-  }
+double getLatitudeFromExif(IfdTag? latitudeRef, IfdTag? latitude) {
+  return _exifCoordinate(latitude, latitudeRef, 'N');
 }
 
 double getLongitudeFromExif(IfdTag? longitudeRef, IfdTag? longitude) {
-  if (longitude != null) {
-    double longDegrees = longitude.values.toList()[0].numerator /
-        longitude.values.toList()[0].denominator;
-    double longMinutes = longitude.values.toList()[1].numerator /
-        longitude.values.toList()[1].denominator;
-    double longSeconds = longitude.values.toList()[2].numerator /
-        longitude.values.toList()[2].denominator;
-
-    int eastWest = longitudeRef.toString() == 'E' ? 1 : -1;
-    return eastWest * (longDegrees + longMinutes / 60 + longSeconds / 60 / 60);
-  } else {
-    return 0.0;
-  }
+  return _exifCoordinate(longitude, longitudeRef, 'E');
 }
 
 DateTime getDateTimeFromExif(IfdTag? dateTime) {
-  if (dateTime != null) {
-    var dateParts = dateTime.toString().split(' ');
-    var datePart = dateParts[0].split(':');
-    var timePart = dateParts[1].split(':');
-    return DateTime(
-        int.parse(datePart[0]),
-        int.parse(datePart[1]),
-        int.parse(datePart[2]),
-        int.parse(timePart[0]),
-        int.parse(timePart[1]),
-        int.parse(timePart[2]));
-  } else {
+  if (dateTime == null) return DateTime.now();
+  final dateParts = dateTime.toString().trim().split(RegExp(r'\s+'));
+  if (dateParts.length < 2) return DateTime.now();
+  final datePart = dateParts[0].split(':');
+  final timePart = dateParts[1].split(':');
+  if (datePart.length < 3 || timePart.length < 3) return DateTime.now();
+  final year = int.tryParse(datePart[0]);
+  final month = int.tryParse(datePart[1]);
+  final day = int.tryParse(datePart[2]);
+  final hour = int.tryParse(timePart[0]);
+  final minute = int.tryParse(timePart[1]);
+  final second = int.tryParse(timePart[2]);
+  if (year == null ||
+      month == null ||
+      day == null ||
+      hour == null ||
+      minute == null ||
+      second == null) {
     return DateTime.now();
   }
+  return DateTime(year, month, day, hour, minute, second);
 }
 
 /// Reads a missing local Seen photo from the owner's private Storage
@@ -546,7 +546,11 @@ class _ResolvedThumbState extends State<_ResolvedThumb> {
   @override
   void didUpdateWidget(covariant _ResolvedThumb oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.cover != widget.cover || !_own) _resolve();
+    if (oldWidget.url != widget.url ||
+        oldWidget.cover != widget.cover ||
+        !_own) {
+      _resolve();
+    }
   }
 
   void _resolve() {

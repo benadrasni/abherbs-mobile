@@ -227,7 +227,7 @@ class _GuidePersonPageState extends State<GuidePersonPage> {
   }
 
   Future<void> _reload() async {
-    if (widget.view != null) return;
+    if (!mounted || widget.view != null) return;
     final ticket = ++_ticket;
     try {
       final view = await widget.load(Localizations.localeOf(context));

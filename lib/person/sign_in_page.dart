@@ -223,8 +223,11 @@ class _GuideSignInPageState extends State<GuideSignInPage> {
       case GuideEmailFollowUp.signedIn:
         _leave();
       case GuideEmailFollowUp.needsVerification:
-        await _showVerify();
-        if (widget.onEmail == null && mounted) await Auth.signOut();
+        try {
+          await _showVerify();
+        } finally {
+          if (widget.onEmail == null) await Auth.signOut();
+        }
       case GuideEmailFollowUp.wrongPassword:
         setState(() => _error = strings.guide_sign_in_wrong_password);
       case GuideEmailFollowUp.shortPassword:
@@ -331,7 +334,11 @@ class _GuideSignInPageState extends State<GuideSignInPage> {
         try {
           await Auth.signInWithCredential(credential);
           signedIn = true;
-          if (!done.isCompleted) done.complete();
+          if (!done.isCompleted) {
+            done.complete();
+          } else if (mounted) {
+            _leave();
+          }
         } catch (error) {
           if (!done.isCompleted) done.completeError(error);
         }

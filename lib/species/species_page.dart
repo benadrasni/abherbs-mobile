@@ -426,6 +426,9 @@ class _GuideSpeciesPageState extends State<GuideSpeciesPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(S.of(context).guide_camera_confirmed)),
       );
+    } catch (error) {
+      debugPrint('guide species keep: $error');
+      _showFailure();
     } finally {
       if (mounted) setState(() => _pendingBusy = false);
     }
@@ -439,6 +442,9 @@ class _GuideSpeciesPageState extends State<GuideSpeciesPage> {
       if (!mounted) return;
       setState(() => _kept = false);
       GuideTabs.refreshSeen?.call();
+    } catch (error) {
+      debugPrint('guide species undo: $error');
+      _showFailure();
     } finally {
       if (mounted) setState(() => _pendingBusy = false);
     }
@@ -496,6 +502,9 @@ class _GuideSpeciesPageState extends State<GuideSpeciesPage> {
           ),
         ),
       );
+    } catch (error) {
+      debugPrint('guide species retarget: $error');
+      _showFailure();
     } finally {
       if (mounted) setState(() => _pendingBusy = false);
     }
@@ -2489,6 +2498,22 @@ class _MapImage extends StatefulWidget {
 
 class _MapImageState extends State<_MapImage> {
   bool _failed = false;
+  late Future<File?> _localFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _localFile = Offline.getLocalFile(widget.path);
+  }
+
+  @override
+  void didUpdateWidget(covariant _MapImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) {
+      _failed = false;
+      _localFile = Offline.getLocalFile(widget.path);
+    }
+  }
 
   Widget _labeledMap(Widget image) {
     return Semantics(
@@ -2513,7 +2538,7 @@ class _MapImageState extends State<_MapImage> {
         child: AspectRatio(
           aspectRatio: 2,
           child: FutureBuilder<File?>(
-            future: Offline.getLocalFile(widget.path),
+            future: _localFile,
             builder: (context, snapshot) {
               final file = snapshot.data;
               if (file != null) {

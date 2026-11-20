@@ -72,10 +72,14 @@ Future<String?> locateGuideRegion() async {
 Future<String?> guideCountryCode(double latitude, double longitude) {
   if (!_onGlobe(latitude, longitude)) return Future<String?>.value(null);
   final key = '${latitude.toStringAsFixed(3)},${longitude.toStringAsFixed(3)}';
-  return _countryLookups.putIfAbsent(
-    key,
-    () => _readCountry(latitude, longitude),
-  );
+  final existing = _countryLookups[key];
+  if (existing != null) return existing;
+  final lookup = _readCountry(latitude, longitude).then((code) {
+    if (code == null) _countryLookups.remove(key);
+    return code;
+  });
+  _countryLookups[key] = lookup;
+  return lookup;
 }
 
 bool _onGlobe(double latitude, double longitude) {

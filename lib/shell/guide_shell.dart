@@ -141,11 +141,20 @@ class _GuideShellState extends State<GuideShell> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  DateTime? _lastVersionCheck;
+  static const _versionCheckInterval = Duration(minutes: 15);
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     unawaited(syncGuidePrivatePhotos());
-    unawaited(_checkVersion());
+    final last = _lastVersionCheck;
+    final blocked = VersionGateController.instance.prompt == VersionPrompt.block;
+    if (blocked ||
+        last == null ||
+        DateTime.now().difference(last) >= _versionCheckInterval) {
+      unawaited(_checkVersion());
+    }
     // A long suspend keeps the strip that was on screen. Ask again so a
     // find deleted on another device does not stay under Seen lately.
     _loadFinds();
@@ -165,6 +174,7 @@ class _GuideShellState extends State<GuideShell> with WidgetsBindingObserver {
   Future<void> _checkVersion() async {
     if (_versionBusy) return;
     _versionBusy = true;
+    _lastVersionCheck = DateTime.now();
     try {
       final build = await readAppBuildNumber();
       if (!mounted) return;

@@ -7,7 +7,13 @@ import { defineBoolean, defineInt, defineSecret, defineString } from 'firebase-f
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { appleTransaction, verifyAppleSignedPayload } from './apple_jws';
-import { proofKey, proofRecordOf, subscriptionProducts, type VerifiedPurchase } from './entitlements';
+import {
+  catalogProducts,
+  proofKey,
+  proofRecordOf,
+  subscriptionProducts,
+  type VerifiedPurchase,
+} from './entitlements';
 import {
   appleNotice,
   applyVerifiedNotification,
@@ -130,7 +136,7 @@ export const identifyPlant = onCall(
     }
     const rawLanguage = request.data?.language;
     const language =
-      typeof rawLanguage === 'string' && /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(rawLanguage)
+      typeof rawLanguage === 'string' && /^[a-z]{2,3}(?:[-_][A-Za-z]{2,4}){0,2}$/.test(rawLanguage)
         ? rawLanguage
         : 'en';
 
@@ -141,26 +147,40 @@ export const identifyPlant = onCall(
     const hash = createHash('sha256').update(image).digest('base64url');
     const quotaRef = db.ref(`photo_quota/${uid}`);
 
-    const refusal = await updateQuota<Refusal | undefined>(quotaRef, (current) => {
-      const reserved = reserveCall(current, Date.now(), hash, {
+    const reservation = await updateQuota<{ refusal?: Refusal | 'no-names'; held: boolean }>(quotaRef, (current) => {
+      const now = Date.now();
+      const reserved = reserveCall(current, now, hash, {
         dailyCeiling: unlimited ? dailyCeilingUnlimited.value() : dailyCeilingFree.value(),
         cooldownMs,
         repeatWindowMs,
         lifetimeCeiling: anonymous ? anonymousLifetimeCalls.value() : undefined,
       });
-      if ('refusal' in reserved) return { state: current ?? {}, value: reserved.refusal };
-      return { state: reserved.state, value: undefined };
+      if ('refusal' in reserved) {
+        return { state: current ?? {}, value: { refusal: reserved.refusal, held: false } };
+      }
+      if (anonymous) {
+        const taken = takeAnonymousFree(reserved.state);
+        if (!taken.free) {
+          return { state: current ?? {}, value: { refusal: 'sign-in', held: false } };
+        }
+        return { state: taken.state, value: { held: false } };
+      }
+      if (!unlimited) {
+        const taken = takeName(reserved.state, now);
+        if (!taken.taken) {
+          return { state: current ?? {}, value: { refusal: 'no-names', held: false } };
+        }
+        return { state: taken.state, value: { held: true } };
+      }
+      return { state: reserved.state, value: { held: false } };
     });
-    if (refusal) throw new HttpsError('resource-exhausted', refusal, { reason: refusal });
+    if (reservation.refusal) {
+      throw new HttpsError('resource-exhausted', reservation.refusal, { reason: reservation.refusal });
+    }
 
     const releaseFree = () =>
       quotaRef.transaction((current: QuotaState | null) => releaseAnonymousFree(current));
     if (anonymous) {
-      const free = await updateQuota<boolean>(quotaRef, (current) => {
-        const taken = takeAnonymousFree(current);
-        return { state: taken.state, value: taken.free };
-      });
-      if (!free) throw new HttpsError('resource-exhausted', 'sign-in', { reason: 'sign-in' });
       let slot = false;
       const shared = await db.ref(`anonymous_daily/${utcDay(Date.now())}`).transaction((current) => {
         const taken = takeSharedSlot(current, anonymousDailyCeiling.value());
@@ -174,17 +194,7 @@ export const identifyPlant = onCall(
       }
     }
 
-    let held = false;
-    if (!unlimited && !anonymous) {
-      const taken = await updateQuota<boolean>(quotaRef, (current) => {
-        const result = takeName(current, Date.now());
-        return { state: result.state, value: result.taken };
-      });
-      if (!taken) {
-        throw new HttpsError('resource-exhausted', 'no-names', { reason: 'no-names' });
-      }
-      held = true;
-    }
+    const held = reservation.held;
 
     let body: Record<string, unknown>;
     try {
@@ -385,6 +395,7 @@ export const submitPurchase = onCall(
     if (
       (store !== 'app_store' && store !== 'google_play') ||
       typeof productId !== 'string' ||
+      !catalogProducts.has(productId) ||
       typeof proof !== 'string' ||
       proof.length === 0 ||
       proof.length > 32768
@@ -562,11 +573,13 @@ export const playStoreNotification = onRequest(
 export const refreshStoreEntitlements = onSchedule(
   {
     schedule: 'every 24 hours',
+    timeoutSeconds: 300,
     secrets: [playPublisherJson, appStoreIssuerId, appStoreKeyId, appStorePrivateKey],
   },
   async () => {
     const db = entitlementDb();
-    const proofs = (await subscriptionProofs(db)).slice(0, 500);
+    const now = Date.now();
+    const proofs = (await subscriptionProofs(db, now)).slice(0, 500);
     const play = playCredentialsOf(playPublisherJson.value());
     const issuer = appStoreIssuerId.value();
     const keyId = appStoreKeyId.value();
@@ -574,7 +587,6 @@ export const refreshStoreEntitlements = onSchedule(
     const apple: AppStoreCredentials | null =
       issuer && keyId && privateKey ? { issuerId: issuer, keyId, privateKey } : null;
     let bearer: string | undefined;
-    const now = Date.now();
     if (play) {
       try {
         bearer = await playBearer(play, fetch, now);

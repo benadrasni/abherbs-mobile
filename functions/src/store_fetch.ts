@@ -86,6 +86,16 @@ function hosts(environment: string | null): string[] {
   return environment === 'Sandbox' ? [sandbox, production] : [production, sandbox];
 }
 
+const storeFetchTimeoutMs = 15_000;
+
+async function readJson(response: Response, label: string): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw new StoreUnavailable(`${label} json`);
+  }
+}
+
 /// Current subscription state from the App Store Server API.
 export async function fetchAppleSubscription(
   originalTransactionId: string,
@@ -102,7 +112,10 @@ export async function fetchAppleSubscription(
     try {
       response = await fetchImpl(
         `${host}/inApps/v1/subscriptions/${originalTransactionId}`,
-        { headers: { Authorization: `Bearer ${bearer}` } },
+        {
+          headers: { Authorization: `Bearer ${bearer}` },
+          signal: AbortSignal.timeout(storeFetchTimeoutMs),
+        },
       );
     } catch {
       throw new StoreUnavailable('app store unreachable');
@@ -112,7 +125,7 @@ export async function fetchAppleSubscription(
       continue;
     }
     if (!response.ok) throw new StoreUnavailable(`app store ${response.status}`);
-    const signed = signedTransactionsFromStatus(await response.json());
+    const signed = signedTransactionsFromStatus(await readJson(response, 'app store'));
     let best: VerifiedPurchase | null = null;
     for (const jws of signed) {
       const payload = verifyAppleSignedPayload(jws, now);
@@ -145,7 +158,10 @@ export async function fetchAppleTransaction(
     try {
       response = await fetchImpl(
         `${host}/inApps/v1/transactions/${transactionId}`,
-        { headers: { Authorization: `Bearer ${bearer}` } },
+        {
+          headers: { Authorization: `Bearer ${bearer}` },
+          signal: AbortSignal.timeout(storeFetchTimeoutMs),
+        },
       );
     } catch {
       throw new StoreUnavailable('app store unreachable');
@@ -155,7 +171,7 @@ export async function fetchAppleTransaction(
       continue;
     }
     if (!response.ok) throw new StoreUnavailable(`app store ${response.status}`);
-    const body = (await response.json()) as { signedTransactionInfo?: unknown };
+    const body = (await readJson(response, 'app store')) as { signedTransactionInfo?: unknown };
     const signed = body?.signedTransactionInfo;
     if (typeof signed !== 'string' || signed.length === 0) {
       throw new StoreUnavailable('app store body');
@@ -177,12 +193,13 @@ async function playAccessToken(credentials: PlayCredentials, fetchImpl: FetchImp
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${encodeURIComponent(assertion)}`,
+      signal: AbortSignal.timeout(storeFetchTimeoutMs),
     });
   } catch {
     throw new StoreUnavailable('play auth unreachable');
   }
   if (!response.ok) throw new StoreUnavailable(`play auth ${response.status}`);
-  const body = (await response.json()) as { access_token?: unknown };
+  const body = (await readJson(response, 'play auth')) as { access_token?: unknown };
   if (typeof body.access_token !== 'string' || body.access_token.length === 0) {
     throw new StoreUnavailable('play auth token');
   }
@@ -192,13 +209,16 @@ async function playAccessToken(credentials: PlayCredentials, fetchImpl: FetchImp
 async function playGet(url: string, accessToken: string, fetchImpl: FetchImpl): Promise<{ status: number; body: unknown }> {
   let response: Response;
   try {
-    response = await fetchImpl(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    response = await fetchImpl(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(storeFetchTimeoutMs),
+    });
   } catch {
     throw new StoreUnavailable('play unreachable');
   }
   if (response.status === 404) return { status: 404, body: null };
   if (!response.ok) throw new StoreUnavailable(`play ${response.status}`);
-  return { status: response.status, body: await response.json() };
+  return { status: response.status, body: await readJson(response, 'play') };
 }
 
 /// Live Play purchase. Subscriptions use subscriptionsv2. One-time products

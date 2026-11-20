@@ -1676,7 +1676,6 @@ String _guideListSortKey(GuideListCover cover) {
   return cover.title.toLowerCase();
 }
 
-@visibleForTesting
 int compareGuideLists(GuideListCover a, GuideListCover b) {
   final byRank = guideListRank(a).compareTo(guideListRank(b));
   if (byRank != 0) return byRank;
@@ -2740,17 +2739,13 @@ Future<void> saveGuideSeen(GuideSeenDraft draft) async {
   observation.country = '';
   final json = observation.toJson();
   final root = privateObservationsReference.child(user.uid);
-  await root
-      .child(firebaseObservationsByDate)
-      .child(firebaseAttributeList)
-      .child(observation.id)
-      .set(json);
-  await root
-      .child(firebaseObservationsByPlant)
-      .child(draft.plant)
-      .child(firebaseAttributeList)
-      .child(observation.id)
-      .set(json);
+  final plantKey = guideObservationPlantKey(draft.plant);
+  await root.update({
+    '$firebaseObservationsByDate/$firebaseAttributeList/${observation.id}':
+        json,
+    '$firebaseObservationsByPlant/$plantKey/$firebaseAttributeList/${observation.id}':
+        json,
+  });
   unawaited(syncGuidePrivatePhotos(onlyId: observation.id));
 }
 

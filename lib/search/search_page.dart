@@ -40,7 +40,7 @@ class _GuideSearchPageState extends State<GuideSearchPage> {
   bool _indexError = false;
   int _indexTicket = 0;
   final Map<String, GuidePlantCard> _cards = {};
-  final Set<int> _loadingCards = {};
+  final Set<String> _loadingCards = {};
 
   @override
   void initState() {
@@ -103,13 +103,13 @@ class _GuideSearchPageState extends State<GuideSearchPage> {
     final results = queryGuideSearch(index, _query);
     for (final plant in results.plants) {
       final key = '${getLanguageCode(lang)}/${plant.id}';
-      if (_cards.containsKey(key) || !_loadingCards.add(plant.id)) continue;
+      if (_cards.containsKey(key) || !_loadingCards.add(key)) continue;
       widget.loadCard(lang, plant.id).then((card) {
-        _loadingCards.remove(plant.id);
+        _loadingCards.remove(key);
         if (!mounted) return;
         setState(() => _cards[key] = card);
       }, onError: (Object error) {
-        _loadingCards.remove(plant.id);
+        _loadingCards.remove(key);
         debugPrint('guide search card ${plant.id}: $error');
       });
     }

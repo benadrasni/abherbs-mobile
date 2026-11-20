@@ -135,13 +135,20 @@ export async function releaseStorePurchases(db: EntitlementDb, uid: string): Pro
   await db.remove(`store_accounts/${storeAccountToken(uid)}`);
 }
 
-export async function subscriptionProofs(db: EntitlementDb): Promise<ProofRecord[]> {
+const subscriptionRefreshGraceMs = 7 * 24 * 60 * 60 * 1000;
+
+export async function subscriptionProofs(db: EntitlementDb, now = Date.now()): Promise<ProofRecord[]> {
   const all = await db.get('purchase_proofs');
   if (!all || typeof all !== 'object') return [];
   const proofs: ProofRecord[] = [];
   for (const value of Object.values(all as Record<string, unknown>)) {
     const proof = proofRecordOf(value);
-    if (proof?.subscription) proofs.push(proof);
+    if (!proof?.subscription) continue;
+    const withinGrace =
+      proof.expiresAt == null || proof.expiresAt + subscriptionRefreshGraceMs > now;
+    if (proof.active || (!proof.revoked && withinGrace)) {
+      proofs.push(proof);
+    }
   }
   return proofs;
 }

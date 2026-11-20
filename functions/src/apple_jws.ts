@@ -108,6 +108,9 @@ function storeKitCertificates(certificates: X509Certificate[]): boolean {
   const leaf = certificates[0];
   const intermediate = certificates[1];
   if (leaf.ca || !intermediate.ca) return false;
+  for (let i = 2; i < certificates.length; i++) {
+    if (!certificates[i].ca) return false;
+  }
   const leafOids = extensionOids(leaf);
   const intermediateOids = extensionOids(intermediate);
   if (!leafOids || !intermediateOids) return false;
@@ -135,7 +138,9 @@ export function verifyAppleSignedPayload(
   } catch {
     return null;
   }
-  if (header.alg !== 'ES256' || !Array.isArray(header.x5c) || header.x5c.length < 2) return null;
+  if (header.alg !== 'ES256' || !Array.isArray(header.x5c) || header.x5c.length < 2 || header.x5c.length > 4) {
+    return null;
+  }
   if (header.x5c.some((entry) => typeof entry !== 'string' || entry.length === 0)) return null;
 
   let root: X509Certificate;
@@ -150,11 +155,16 @@ export function verifyAppleSignedPayload(
   if (certificates.some((certificate) => !certificateCurrent(certificate, now))) return null;
 
   for (let i = 0; i < certificates.length - 1; i++) {
-    if (!certificates[i].verify(certificates[i + 1].publicKey)) return null;
+    if (
+      !certificates[i].checkIssued(certificates[i + 1]) ||
+      !certificates[i].verify(certificates[i + 1].publicKey)
+    ) {
+      return null;
+    }
   }
   const top = certificates[certificates.length - 1];
   const topIsRoot = top.fingerprint256 === root.fingerprint256;
-  if (!topIsRoot && !top.verify(root.publicKey)) return null;
+  if (!topIsRoot && (!top.checkIssued(root) || !top.verify(root.publicKey))) return null;
   if (!storeKitCertificates(certificates)) return null;
 
   const signatureOk = verify(

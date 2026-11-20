@@ -295,6 +295,10 @@ class _AppState extends State<App> {
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   late StreamSubscription<List<PurchaseDetails>> _subscription;
   StreamSubscription<Uri>? _sharedLinks;
+  StreamSubscription<String>? _fcmTokenSub;
+  StreamSubscription<RemoteMessage>? _fcmMessageSub;
+  StreamSubscription<RemoteMessage>? _fcmOpenedSub;
+  String? _savedLocaleKey;
   String? _pendingSharedPlant;
   String? _openedSharedLink;
   DateTime? _openedSharedAt;
@@ -526,7 +530,8 @@ class _AppState extends State<App> {
     FirebaseMessaging.instance.getToken().then((token) {
       _persistFcmToken(token);
     }).onError((error, stackTrace) => null);
-    FirebaseMessaging.instance.onTokenRefresh.listen(_persistFcmToken);
+    _fcmTokenSub =
+        FirebaseMessaging.instance.onTokenRefresh.listen(_persistFcmToken);
 
     FirebaseMessaging.instance.getInitialMessage().then((value) async {
       if (value != null) {
@@ -534,11 +539,13 @@ class _AppState extends State<App> {
       }
     });
 
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    _fcmMessageSub =
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       handleMessage(message);
     });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
+    _fcmOpenedSub =
+        FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
       await _openFromNotification(message);
     });
   }
@@ -627,10 +634,15 @@ class _AppState extends State<App> {
   Locale localeResolution(
       Locale savedLocale, Iterable<Locale> supportedLocales) {
     final resultLocale = resolveAppLocale(savedLocale, supportedLocales);
-    Prefs.setStringList(keyLanguageAndCountry, [
-      resultLocale.languageCode,
-      resultLocale.countryCode ?? '',
-    ]);
+    final country = resultLocale.countryCode ?? '';
+    final key = '${resultLocale.languageCode}_$country';
+    if (_savedLocaleKey != key) {
+      _savedLocaleKey = key;
+      Prefs.setStringList(keyLanguageAndCountry, [
+        resultLocale.languageCode,
+        country,
+      ]);
+    }
     return resultLocale;
   }
 
@@ -747,6 +759,9 @@ class _AppState extends State<App> {
     Prefs.dispose();
     _subscription.cancel();
     _sharedLinks?.cancel();
+    _fcmTokenSub?.cancel();
+    _fcmMessageSub?.cancel();
+    _fcmOpenedSub?.cancel();
     super.dispose();
   }
 

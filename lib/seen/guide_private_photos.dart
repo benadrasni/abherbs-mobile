@@ -196,19 +196,24 @@ Future<File?> _fetch(String path, String object) async {
   }
 }
 
+void clearPendingPrivatePhotos() {
+  _pending.clear();
+}
+
 /// Uploads this account's local Seen photos while those photos sync.
 /// [onlyId] limits the pass to one find. A pass already running is followed
 /// by another, so a save during the catch-up is not missed.
 Future<void> syncGuidePrivatePhotos({String? onlyId}) async {
   if (!Purchases.syncsSeenPhotos()) return;
-  final uid = _notebookUser()?.uid;
-  if (uid == null) return;
+  if (_notebookUser()?.uid == null) return;
   _pending.add(onlyId);
   if (_running) return;
   _running = true;
   try {
     while (_pending.isNotEmpty) {
       if (!Purchases.syncsSeenPhotos()) return;
+      final uid = _notebookUser()?.uid;
+      if (uid == null) return;
       final ids = Set<String?>.of(_pending);
       _pending.clear();
       try {

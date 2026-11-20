@@ -366,40 +366,57 @@ String _createNonce(int length) {
   return String.fromCharCodes(charCodes);
 }
 
-Future<String?> _askPassword(BuildContext context) async {
-  final controller = TextEditingController();
-  final result = await showDialog<String>(
+Future<String?> _askPassword(BuildContext context) {
+  return showDialog<String>(
     context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(S.of(dialogContext).auth_delete_account_reauth),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: S.of(dialogContext).auth_password_hint,
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            child: Text(S.of(dialogContext).cancel.toUpperCase()),
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-            },
-          ),
-          TextButton(
-            child: Text(S.of(dialogContext).auth_sign_in.toUpperCase()),
-            onPressed: () {
-              Navigator.of(dialogContext).pop(controller.text);
-            },
-          ),
-        ],
-      );
-    },
+    builder: (_) => const _PasswordReauthDialog(),
   );
-  controller.dispose();
-  return result;
+}
+
+class _PasswordReauthDialog extends StatefulWidget {
+  const _PasswordReauthDialog();
+
+  @override
+  State<_PasswordReauthDialog> createState() => _PasswordReauthDialogState();
+}
+
+class _PasswordReauthDialogState extends State<_PasswordReauthDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(S.of(context).auth_delete_account_reauth),
+      content: TextField(
+        controller: _controller,
+        obscureText: true,
+        autofocus: true,
+        decoration: InputDecoration(
+          labelText: S.of(context).auth_password_hint,
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          child: Text(S.of(context).cancel.toUpperCase()),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+        TextButton(
+          child: Text(S.of(context).auth_sign_in.toUpperCase()),
+          onPressed: () {
+            Navigator.of(context).pop(_controller.text);
+          },
+        ),
+      ],
+    );
+  }
 }
 
 Future<bool> _reauthenticatePhone(

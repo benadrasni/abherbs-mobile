@@ -163,13 +163,17 @@ class _GuideCameraPageState extends State<GuideCameraPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (widget.livePreview != null) return;
-    final camera = _camera;
-    if (state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _previewEpoch++;
+      final camera = _camera;
       if (camera == null || !camera.value.isInitialized) return;
       unawaited(_stopPreview());
     } else if (state == AppLifecycleState.resumed &&
         _camera == null &&
-        !_previewStarting) {
+        !_previewStarting &&
+        !_naming &&
+        ModalRoute.of(context)?.isCurrent == true) {
       unawaited(_startPreview());
     }
   }
@@ -319,7 +323,12 @@ class _GuideCameraPageState extends State<GuideCameraPage>
   }
 
   void _loadAd() {
-    if (widget.onWatchAd != null || _rewardedAd != null || _adLoading) return;
+    if (!mounted ||
+        widget.onWatchAd != null ||
+        _rewardedAd != null ||
+        _adLoading) {
+      return;
+    }
     _adLoading = true;
     RewardedAd.load(
       adUnitId: getRewardAdUnitId(),
@@ -327,6 +336,10 @@ class _GuideCameraPageState extends State<GuideCameraPage>
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           _adLoading = false;
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
           _rewardedAd = ad;
           _adAttempts = 0;
         },
@@ -335,7 +348,7 @@ class _GuideCameraPageState extends State<GuideCameraPage>
           _adLoading = false;
           _rewardedAd = null;
           _adAttempts += 1;
-          if (_adAttempts <= 3) _loadAd();
+          if (mounted && _adAttempts <= 3) _loadAd();
         },
       ),
     );
@@ -361,23 +374,30 @@ class _GuideCameraPageState extends State<GuideCameraPage>
         ad.dispose();
         dismissed = true;
         if (_rewardedAd == ad) _rewardedAd = null;
-        _loadAd();
+        if (mounted) _loadAd();
         if (!done.isCompleted) done.complete();
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         ad.dispose();
         if (_rewardedAd == ad) _rewardedAd = null;
-        _loadAd();
+        if (mounted) _loadAd();
         if (!done.isCompleted) done.complete();
       },
     );
     _rewardedAd = null;
-    await tieRewardedAd(ad);
-    await ad.show(
-      onUserEarnedReward: (ad, rewardItem) {
-        earned = true;
-      },
-    );
+    try {
+      await tieRewardedAd(ad);
+      await ad.show(
+        onUserEarnedReward: (ad, rewardItem) {
+          earned = true;
+        },
+      );
+    } catch (error) {
+      debugPrint('guide camera ad show: $error');
+      ad.dispose();
+      if (mounted) _loadAd();
+      return;
+    }
     await done.future;
     if (dismissed) unawaited(GuideAnalytics.adReward(earned: earned));
     if (earned) await waitForNameGrant(before);

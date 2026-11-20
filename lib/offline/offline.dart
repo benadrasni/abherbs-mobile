@@ -619,10 +619,12 @@ class Offline {
   }
 
   static Future<void> delete() async {
-    setKeepSynced(1, false);
-    setKeepSynced(2, false);
-    setKeepSynced(3, false);
-    setKeepSynced(4, false);
+    await Future.wait([
+      setKeepSynced(1, false),
+      setKeepSynced(2, false),
+      setKeepSynced(3, false),
+      setKeepSynced(4, false),
+    ]);
     if (_rootPath.isEmpty) {
       _rootPath = (await getApplicationDocumentsDirectory()).path;
     }

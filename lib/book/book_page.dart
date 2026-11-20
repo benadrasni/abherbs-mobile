@@ -534,7 +534,7 @@ String _taxonHeading(GuideSearchTaxon taxon) {
   final vernacular = raw == taxon.latinName ? null : raw;
   final distinct = vernacular != null &&
       foldSearch(vernacular) != foldSearch(taxon.latinName);
-  return distinct ? vernacular! : taxon.latinName;
+  return distinct ? vernacular : taxon.latinName;
 }
 
 class _TaxonRow extends StatelessWidget {

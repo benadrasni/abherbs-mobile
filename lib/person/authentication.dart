@@ -6,6 +6,7 @@ import 'package:abherbs_flutter/data/guide_sync.dart';
 import 'package:abherbs_flutter/data/prefs.dart';
 import 'package:abherbs_flutter/purchase/purchases.dart';
 import 'package:abherbs_flutter/purchase/store_proof.dart';
+import 'package:abherbs_flutter/seen/guide_private_photos.dart';
 import 'package:abherbs_flutter/data/utils.dart';
 import 'package:abherbs_flutter/shell/guide_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -318,6 +319,7 @@ class Auth {
     Purchases.clearAccountProducts();
     unawaited(Prefs.setBool(keyOldVersion, false));
     unawaited(clearPendingStoreProofs());
+    clearPendingPrivatePhotos();
     await firebaseAuth.signOut();
     _syncAnalytics();
   }

@@ -644,23 +644,29 @@ class _SeenPageState extends State<SeenPage> {
 
   Future<void> _sendShare(BuildContext sheetContext, GuideSeenFind find) async {
     Navigator.pop(sheetContext);
-    final action = widget.onShare;
-    final ok =
-        action != null ? await action(find) : await shareGuideFind(find.id);
-    if (ok) {
-      unawaited(GuideAnalytics.seenSave(source: 'photo', shared: true));
-    }
-    if (!mounted) return;
-    if (ok) GuideTabs.refreshSeen?.call();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? S.of(context).guide_seen_share_sent
-              : S.of(context).guide_seen_share_failed,
+    if (_busy.contains(find.id)) return;
+    setState(() => _busy.add(find.id));
+    try {
+      final action = widget.onShare;
+      final ok =
+          action != null ? await action(find) : await shareGuideFind(find.id);
+      if (ok) {
+        unawaited(GuideAnalytics.seenSave(source: 'photo', shared: true));
+      }
+      if (!mounted) return;
+      if (ok) GuideTabs.refreshSeen?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? S.of(context).guide_seen_share_sent
+                : S.of(context).guide_seen_share_failed,
+          ),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) setState(() => _busy.remove(find.id));
+    }
   }
 
   Future<void> _withdraw(GuideSeenFind find) async {
@@ -696,21 +702,27 @@ class _SeenPageState extends State<SeenPage> {
     GuideSeenFind find,
   ) async {
     Navigator.pop(sheetContext);
-    final action = widget.onWithdraw;
-    final ok = action != null
-        ? await action(find)
-        : await withdrawGuideFind(id: find.id, plant: find.name);
-    if (!mounted) return;
-    if (ok) GuideTabs.refreshSeen?.call();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? S.of(context).guide_seen_withdrawn
-              : S.of(context).guide_seen_share_failed,
+    if (_busy.contains(find.id)) return;
+    setState(() => _busy.add(find.id));
+    try {
+      final action = widget.onWithdraw;
+      final ok = action != null
+          ? await action(find)
+          : await withdrawGuideFind(id: find.id, plant: find.name);
+      if (!mounted) return;
+      if (ok) GuideTabs.refreshSeen?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? S.of(context).guide_seen_withdrawn
+                : S.of(context).guide_seen_share_failed,
+          ),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) setState(() => _busy.remove(find.id));
+    }
   }
 }
 
