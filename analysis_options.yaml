@@ -1,0 +1,6 @@
+analyzer:
+  exclude:
+    - build/**
+    - myenv/**
+    - venv/**
+    - lib/generated/**
