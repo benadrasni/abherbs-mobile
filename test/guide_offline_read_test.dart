@@ -131,8 +131,11 @@ guideReadOrPack(
 ''';
     expect(packArguments(passedAsPack).single, contains('.get('));
 
-    final packs =
-        packArguments(File('lib/data/guide_data.dart').readAsStringSync());
+    final packs = [
+      for (final file in Directory('lib/data').listSync().whereType<File>())
+        if (file.path.endsWith('.dart'))
+          ...packArguments(file.readAsStringSync()),
+    ];
     expect(packs, isNotEmpty);
     for (final pack in packs) {
       expect(pack.contains('.get('), isFalse, reason: pack);
