@@ -14,12 +14,6 @@ export type PlayPurchase = {
   subscription: boolean;
 };
 
-function playLicenseTest(record: Record<string, unknown>): boolean {
-  if (record.purchaseType === 0) return true;
-  const test = record.testPurchase;
-  return test != null && typeof test === 'object';
-}
-
 function obfuscatedAccount(record: Record<string, unknown>): string | null {
   const nested = record.externalAccountIdentifiers;
   if (nested && typeof nested === 'object') {
@@ -31,7 +25,8 @@ function obfuscatedAccount(record: Record<string, unknown>): string | null {
 }
 
 /// Subscriptions v2. A canceled plan stays active until its expiry.
-/// A license test does not grant.
+/// A license test follows the same states. `testPurchase` only means the
+/// tester was not charged.
 export function playSubscription(body: unknown, now: number): PlayPurchase | null {
   if (!body || typeof body !== 'object') return null;
   const record = body as Record<string, unknown>;
@@ -52,14 +47,14 @@ export function playSubscription(body: unknown, now: number): PlayPurchase | nul
   return {
     productId: best.productId,
     expiresAt: best.expiresAt,
-    revoked: !stateActive || best.expiresAt <= now || playLicenseTest(record),
+    revoked: !stateActive || best.expiresAt <= now,
     obfuscatedAccountId: obfuscatedAccount(record),
     subscription: true,
   };
 }
 
 /// One-time product. purchaseState 0 is purchased, 1 is canceled.
-/// A license test does not grant. A normal purchase omits purchaseType and testPurchase.
+/// A license test (`purchaseType` 0 or `testPurchase`) grants when purchased.
 export function playOneTime(body: unknown, productId: string): PlayPurchase | null {
   if (!body || typeof body !== 'object') return null;
   if (!/^[A-Za-z0-9_]{1,64}$/.test(productId)) return null;
@@ -69,7 +64,7 @@ export function playOneTime(body: unknown, productId: string): PlayPurchase | nu
   return {
     productId,
     expiresAt: null,
-    revoked: state === 1 || playLicenseTest(record),
+    revoked: state === 1,
     obfuscatedAccountId: obfuscatedAccount(record),
     subscription: false,
   };

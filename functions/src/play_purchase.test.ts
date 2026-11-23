@@ -42,20 +42,33 @@ test('a held or expired Play subscription does not grant', () => {
   );
 });
 
-test('a canceled or license-test one-time Play product does not grant', () => {
+test('a canceled one-time Play product does not grant, and a license test does', () => {
   assert.equal(playOneTime({ purchaseState: 0, obfuscatedExternalAccountId: 'abc' }, 'no_ads')?.revoked, false);
-  assert.equal(playOneTime({ purchaseState: 0, purchaseType: 0 }, 'no_ads')?.revoked, true);
-  assert.equal(playOneTime({ purchaseState: 1 }, 'offline')?.revoked, true);
+  assert.equal(playOneTime({ purchaseState: 0, purchaseType: 0 }, 'no_ads')?.revoked, false);
+  assert.equal(playOneTime({ purchaseState: 0, testPurchase: {} }, 'no_ads')?.revoked, false);
+  assert.equal(playOneTime({ purchaseState: 1, purchaseType: 0 }, 'offline')?.revoked, true);
   assert.equal(playOneTime({ purchaseState: 2 }, 'offline'), null);
 });
 
-test('a license-test Play subscription does not grant', () => {
+test('a license-test Play subscription grants while it is active', () => {
   const yearly = {
     subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE',
     lineItems: [{ productId: 'field_guide_yearly', expiryTime: '2027-10-06T12:00:00Z' }],
   };
   assert.equal(playSubscription(yearly, now)?.revoked, false);
-  assert.equal(playSubscription({ ...yearly, testPurchase: {} }, now)?.revoked, true);
+  assert.equal(playSubscription({ ...yearly, testPurchase: {} }, now)?.revoked, false);
+  assert.equal(playSubscription({ ...yearly, purchaseType: 0 }, now)?.revoked, false);
+  assert.equal(
+    playSubscription(
+      {
+        subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE',
+        testPurchase: {},
+        lineItems: [{ productId: 'field_guide_monthly', expiryTime: '2026-10-01T00:00:00Z' }],
+      },
+      now,
+    )?.revoked,
+    true,
+  );
 });
 
 test('a Play notification keeps the purchase token', () => {
