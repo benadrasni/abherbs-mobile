@@ -109,10 +109,16 @@ flutter {
 
 // Firebase / Play Ads may request a newer work-runtime. Newer than 2.9.1
 // reintroduces JobScheduler.forNamespace() and the OEM startup crash.
+// play-services-ads 25.4.0 and 25.5.0 both request hsdp 2.0.1. That shim's
+// HsdpShimActivity throws IllegalStateException ("targetPackageName is null")
+// from onAttachedToWindow when Play starts it without extras, and the process
+// dies. 2.1.0 still throws. 2.2.0 finishes the activity instead. Its public
+// HsdpDeepLinkService API matches 2.0.1, and its minSdk is 24.
 configurations.configureEach {
     resolutionStrategy {
         force 'androidx.work:work-runtime:2.9.1'
         force 'androidx.work:work-runtime-ktx:2.9.1'
+        force 'com.google.android.play:hsdp:2.2.0'
     }
 }
 
@@ -127,5 +133,6 @@ dependencies {
     // frameworks and kills the process before Application.onCreate. 2.9.1 is the
     // last release without namespaces and still ships Room 2.5 / sqlite 2.3.
     implementation 'androidx.work:work-runtime:2.9.1'
+    implementation 'com.google.android.play:hsdp:2.2.0'
 }
 
